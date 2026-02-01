@@ -441,7 +441,9 @@ export default function ProjectsPage() {
                             {project.tech_stack || 'Generic'}
                         </span>
                     </div>
-                    <div className="text-sm text-sky-600 font-mono mt-2 font-medium">https://{project.project_name.toLowerCase().replace(/\s+/g, '-').replace(/\./g, '-')}.arvo.team</div>
+                    <div className="text-sm text-sky-600 font-mono mt-2 font-medium">
+                      https://{project.subdomain || project.project_name.toLowerCase().replace(/\s+/g, '-')}.arvo.team
+                    </div>
                     </div>
                     <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <RippleButton onClick={() => handleDelete(project.webhook_uuid)} className="bg-white text-red-600 border border-red-200 px-4 py-2 text-xs font-bold hover:bg-red-50 hover:border-red-500 uppercase">

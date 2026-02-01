@@ -20,7 +20,7 @@ export async function createProject(formData: FormData) {
     project_name: formData.get('project_name'),
     tech_stack: formData.get('tech_stack'),
     github_repository_url: formData.get('github_repository_url'),
-    deploy_path: formData.get('deploy_path'), 
+    subdomain: formData.get('subdomain'), // Critical for Tunnel DNS
     branch: formData.get('branch') || 'main'
   };
 
@@ -31,9 +31,8 @@ export async function createProject(formData: FormData) {
       body: JSON.stringify(rawData),
     });
     
-    if (!res.ok) throw new Error('Failed to create project');
-    
     const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to create project');
     
     revalidatePath('/projects');
     
@@ -42,12 +41,16 @@ export async function createProject(formData: FormData) {
       webhook_uuid: data.webhook_uuid,
       webhook_secret: data.webhook_secret 
     };
-  } catch (error) {
-    return { success: false, error: 'Failed to create project' };
+  } catch (error: any) {
+    return { success: false, error: error.message };
   }
 }
 
 export async function deleteProject(uuid: string) {
-    await fetch(`${API_URL}/projects/${uuid}`, { method: 'DELETE' });
-    revalidatePath('/projects');
+    try {
+        await fetch(`${API_URL}/projects/${uuid}`, { method: 'DELETE' });
+        revalidatePath('/projects');
+    } catch (err) {
+        console.error("Delete failed:", err);
+    }
 }
