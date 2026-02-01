@@ -20,8 +20,8 @@ export async function createProject(formData: FormData) {
     project_name: formData.get('project_name'),
     tech_stack: formData.get('tech_stack'),
     github_repository_url: formData.get('github_repository_url'),
-    deploy_path: formData.get('deploy_path'), // Added this field to form
-    branch: 'main'
+    deploy_path: formData.get('deploy_path'), 
+    branch: formData.get('branch') || 'main'
   };
 
   try {
@@ -33,8 +33,15 @@ export async function createProject(formData: FormData) {
     
     if (!res.ok) throw new Error('Failed to create project');
     
+    const data = await res.json();
+    
     revalidatePath('/projects');
-    return { success: true };
+    
+    return { 
+      success: true, 
+      webhook_uuid: data.webhook_uuid,
+      webhook_secret: data.webhook_secret 
+    };
   } catch (error) {
     return { success: false, error: 'Failed to create project' };
   }
