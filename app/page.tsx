@@ -1,6 +1,7 @@
 'use client';
 
-return (
+export default function DashboardPage() {
+  return (
     <div className="space-y-8 max-w-5xl mx-auto relative font-sans">
       
       <div className="flex items-end justify-between pb-6">
