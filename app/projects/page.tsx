@@ -1,165 +1,209 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, MouseEvent } from 'react';
+import Link from 'next/link';
 import { getAttachedProjects, attachProject, detachProject } from '@/app/actions/github-projects';
 import { fetchUserRepos } from '@/app/actions/github-api';
 import { detectRepository } from '@/app/actions/detect';
+import { checkIntegrations } from '@/app/actions/settings';
+
+const RippleButton = ({ children, onClick, className, disabled, type = 'button' }: any) => {
+  const createRipple = (event: MouseEvent<HTMLButtonElement>) => {
+    const button = event.currentTarget;
+    const circle = document.createElement('span');
+    const diameter = Math.max(button.clientWidth, button.clientHeight);
+    const radius = diameter / 2;
+    const rect = button.getBoundingClientRect();
+    circle.style.width = circle.style.height = `${diameter}px`;
+    circle.style.left = `${event.clientX - rect.left - radius}px`;
+    circle.style.top = `${event.clientY - rect.top - radius}px`;
+    circle.classList.add('ripple');
+    const existing = button.getElementsByClassName('ripple')[0];
+    if (existing) existing.remove();
+    button.appendChild(circle);
+    if (onClick) onClick(event);
+  };
+  return (
+    <button type={type} disabled={disabled} onClick={createRipple} className={`relative overflow-hidden transition-all duration-200 ${className}`}>
+      <span className="relative z-10">{children}</span>
+      <style jsx global>{`
+        span.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple 600ms linear; background-color: rgba(255, 255, 255, 0.3); pointer-events: none; }
+        @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+      `}</style>
+    </button>
+  );
+};
 
 export default function ProjectsPage() {
-    const [attached, setAttached] = useState<any[]>([]);
-    const [available, setAvailable] = useState<any[]>([]);
-    const [search, setSearch] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
-    const [processingId, setProcessingId] = useState<number | null>(null);
+  const [attached, setAttached] = useState<any[]>([]);
+  const [available, setAvailable] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [patKey, setPatKey] = useState(false);
+  const [processingId, setProcessingId] = useState<number | null>(null);
 
-    useEffect(() => {
-        loadData();
-    }, []);
+  useEffect(() => {
+    loadData();
+    checkIntegrations().then((status) => setPatKey(status.hasPat));
+  }, []);
 
-    const loadData = async () => {
-        setIsLoading(true);
-        const [attachedData, githubData] = await Promise.all([
-            getAttachedProjects(),
-            fetchUserRepos()
-        ]);
+  const loadData = async () => {
+    setIsLoading(true);
+    const [attachedData, githubData] = await Promise.all([
+      getAttachedProjects(),
+      fetchUserRepos()
+    ]);
 
-        setAttached(attachedData);
+    setAttached(attachedData || []);
 
-        if (githubData.success) {
-            const attachedUrls = (attachedData || []).map((p: any) => p.url_path.toLowerCase());
-            const filtered = githubData.repos.filter((repo: any) => 
-                !attachedUrls.includes(repo.html_url.toLowerCase())
-            );
-            setAvailable(filtered);
-        }
-        setIsLoading(false);
+    if (githubData.success) {
+      const attachedUrls = (attachedData || []).map((p: any) => p.url_path.toLowerCase());
+      const filtered = githubData.repos.filter((repo: any) => 
+        !attachedUrls.includes(repo.html_url.toLowerCase())
+      );
+      setAvailable(filtered);
+    }
+    setIsLoading(false);
+  };
+
+  const handleAttach = async (repo: any) => {
+    setProcessingId(repo.id);
+    const detection = await detectRepository(repo.html_url);
+    
+    const projectData = {
+      name: repo.name,
+      owner: repo.owner.login,
+      owner_type: repo.owner.type,
+      description: repo.description || '',
+      url_path: repo.html_url,
+      git_url: repo.clone_url,
+      ssh_url: repo.ssh_url,
+      visibility: repo.private ? 'private' : 'public',
+      branch: detection.success ? detection.default_branch : repo.default_branch
     };
 
-    const handleAttach = async (repo: any) => {
-        setProcessingId(repo.id);
-        const detection = await detectRepository(repo.html_url);
-        
-        const projectData = {
-            name: repo.name,
-            owner: repo.owner.login,
-            owner_type: repo.owner.type,
-            description: repo.description || 'No description',
-            url_path: repo.html_url,
-            git_url: repo.clone_url,
-            ssh_url: repo.ssh_url,
-            visibility: repo.private ? 'private' : 'public',
-            branch: detection.success ? detection.default_branch : repo.default_branch
-        };
+    const result = await attachProject(projectData);
+    if (result.success) await loadData();
+    setProcessingId(null);
+  };
 
-        const result = await attachProject(projectData);
-        if (result.success) await loadData();
-        setProcessingId(null);
-    };
+  const handleDetach = async (uuid: string) => {
+    if (!confirm('Are you sure? This cannot be undone.')) return;
+    const result = await detachProject(uuid);
+    if (result.success) await loadData();
+  };
 
-    const handleDetach = async (uuid: string) => {
-        if (!confirm('Detach this project?')) return;
-        const result = await detachProject(uuid);
-        if (result.success) await loadData();
-    };
+  const filteredAvailable = available.filter(repo => 
+    repo.name.toLowerCase().includes(search.toLowerCase()) ||
+    repo.owner.login.toLowerCase().includes(search.toLowerCase())
+  ).sort((a, b) => a.name.localeCompare(b.name));
 
-    const filteredAvailable = (available || []).filter(repo => 
-        repo.name.toLowerCase().includes(search.toLowerCase()) ||
-        repo.owner.login.toLowerCase().includes(search.toLowerCase())
-    ).sort((a, b) => a.name.localeCompare(b.name));
-
-    return (
-        <div className="max-w-6xl mx-auto space-y-10 p-6 font-sans">
-            <header className="flex justify-between items-end border-b border-gray-100 pb-8">
-                <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tighter text-sky-900 leading-none">Projects</h1>
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-3">Sync Local Database with GitHub Cloud</p>
-                </div>
-                <div className="relative">
-                    <input 
-                        type="text" 
-                        placeholder="FILTER REPOSITORIES..." 
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="bg-gray-50 border border-gray-200 px-4 py-3 text-[10px] font-black uppercase tracking-widest focus:outline-none focus:border-sky-500 w-72 placeholder:text-gray-300"
-                    />
-                    <i className="fa-solid fa-magnifying-glass absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 text-xs"></i>
-                </div>
-            </header>
-
-            <section className="space-y-6">
-                <div className="flex items-center gap-3">
-                    <div className="h-[1px] flex-1 bg-gray-100"></div>
-                    <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.3em]">Attached ({attached.length})</h2>
-                    <div className="h-[1px] flex-1 bg-gray-100"></div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {attached.map((project) => (
-                        <div key={project.project_uuid} className="bg-white border border-gray-200 p-6 flex justify-between items-center shadow-sm hover:border-sky-200 transition-colors group">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h3 className="font-black text-black uppercase text-sm tracking-tight">{project.name}</h3>
-                                    <span className="text-[8px] bg-gray-100 text-gray-500 px-1.5 py-0.5 font-black rounded-sm">{project.visibility}</span>
-                                </div>
-                                <p className="text-[10px] text-sky-600 font-bold mt-1 uppercase tracking-tighter truncate max-w-[250px]">{project.owner_login}</p>
-                            </div>
-                            <button 
-                                onClick={() => handleDetach(project.project_uuid)}
-                                className="text-[9px] font-black text-red-500 border border-red-100 px-4 py-2 hover:bg-red-500 hover:text-white uppercase tracking-widest transition-all"
-                            >
-                                Detach
-                            </button>
-                        </div>
-                    ))}
-                </div>
-                {!isLoading && attached.length === 0 && (
-                    <div className="py-12 text-center border-2 border-dashed border-gray-100 text-[10px] font-black uppercase text-gray-300 tracking-widest">No projects attached to local database</div>
-                )}
-            </section>
-
-            <section className="space-y-6">
-                <div className="flex items-center gap-3">
-                    <div className="h-[1px] flex-1 bg-gray-100"></div>
-                    <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.3em]">Available ({filteredAvailable.length})</h2>
-                    <div className="h-[1px] flex-1 bg-gray-100"></div>
-                </div>
-                <div className="bg-white border border-gray-200 shadow-sm">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50 border-b border-gray-200 text-[9px] font-black uppercase text-gray-400 tracking-widest">
-                                <th className="px-8 py-4">Repository Identity</th>
-                                <th className="px-8 py-4 text-right">Synchronization</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {filteredAvailable.map((repo) => (
-                                <tr key={repo.id} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="px-8 py-5">
-                                        <div className="font-black text-sm text-gray-900 tracking-tight">{repo.name}</div>
-                                        <div className="text-[9px] text-gray-400 uppercase font-black tracking-widest mt-1 flex items-center gap-2">
-                                            {repo.owner.login} <span className="w-1 h-1 bg-gray-200 rounded-full"></span> {repo.language || 'Unknown'}
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-5 text-right">
-                                        <button 
-                                            disabled={processingId === repo.id}
-                                            onClick={() => handleAttach(repo)}
-                                            className="bg-black text-white text-[9px] font-black px-6 py-2.5 uppercase tracking-[0.2em] hover:bg-sky-600 disabled:bg-gray-200 transition-all shadow-sm"
-                                        >
-                                            {processingId === repo.id ? 'Processing...' : 'Attach Project'}
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {isLoading && (
-                        <div className="py-20 text-center">
-                            <i className="fa-solid fa-circle-notch fa-spin text-sky-500 mb-4 text-xl"></i>
-                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Synchronizing GitHub Inventory</div>
-                        </div>
-                    )}
-                </div>
-            </section>
+  return (
+    <div className="space-y-8 max-w-5xl mx-auto relative font-sans">
+      
+      <div className="flex items-end justify-between pb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-sky-900 uppercase tracking-tight">Projects</h1>
+          <p className="text-sm text-gray-600 mt-2 font-medium">Manage repositories and synchronization</p>
         </div>
-    );
+        <div className="relative">
+          <input 
+            type="text" 
+            placeholder="Search repositories..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="bg-gray-50 border border-gray-200 p-3 text-sm text-black focus:outline-none focus:border-sky-500 w-64 shadow-sm"
+          />
+        </div>
+      </div>
+
+      {!patKey && (
+        <div className="bg-amber-50 border border-amber-200 p-4 text-amber-800 text-sm flex items-center justify-between shadow-sm rounded-sm">
+          <div className="flex items-center gap-3">
+            <i className="fa-solid fa-triangle-exclamation text-amber-500"></i>
+            <span><strong>Setup Required:</strong> Configure your GitHub PAT to sync repositories.</span>
+          </div>
+          <Link href="/settings?from=projects" className="text-amber-900 underline font-bold hover:text-amber-600 text-xs uppercase tracking-wide">
+            Setup Git Key &rarr;
+          </Link>
+        </div>
+      )}
+
+      {/* SECTION: ATTACHED PROJECTS */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-bold text-black uppercase tracking-wide border-b border-gray-100 pb-2">Attached Projects</h3>
+        <div className="grid gap-4">
+          {attached.map((project) => (
+            <div key={project.project_uuid} className="bg-white border border-gray-200 p-6 hover:border-sky-500 transition-all duration-200 group shadow-sm hover:shadow-md">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-xl font-bold text-black">{project.name}</h3>
+                    <span className="bg-gray-100 text-gray-600 text-[10px] px-2 py-1 font-bold uppercase tracking-widest border border-gray-200">
+                      {project.visibility}
+                    </span>
+                  </div>
+                  <div className="text-sm text-sky-600 font-mono mt-2 font-medium">
+                    {project.owner_login}
+                  </div>
+                </div>
+                <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <RippleButton onClick={() => handleDetach(project.project_uuid)} className="bg-white text-red-600 border border-red-200 px-4 py-2 text-xs font-bold hover:bg-red-50 hover:border-red-500 uppercase">
+                    Detach
+                  </RippleButton>
+                  <a href={project.url_path} target="_blank" className="inline-block bg-white text-black border border-gray-200 px-4 py-2 text-xs font-bold hover:bg-black hover:text-white transition-colors uppercase">
+                    Repo
+                  </a>
+                </div>
+              </div>
+            </div>
+          ))}
+          {!isLoading && attached.length === 0 && (
+            <div className="p-8 text-center text-gray-400 border border-dashed border-gray-200">
+              No projects attached to local database.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SECTION: AVAILABLE REPOSITORIES */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-bold text-black uppercase tracking-wide border-b border-gray-100 pb-2">Available on GitHub</h3>
+        <div className="bg-white border border-gray-200 shadow-sm overflow-hidden">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200 text-xs font-bold uppercase text-gray-500">
+                <th className="px-6 py-4">Repository</th>
+                <th className="px-6 py-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredAvailable.map((repo) => (
+                <tr key={repo.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-sm text-black">{repo.name}</div>
+                    <div className="text-xs text-gray-500 mt-1">{repo.owner.login} • {repo.language || 'Code'}</div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <RippleButton 
+                      disabled={processingId === repo.id}
+                      onClick={() => handleAttach(repo)}
+                      className="bg-black text-white px-4 py-2 text-xs font-bold hover:bg-gray-800 uppercase disabled:bg-gray-200"
+                    >
+                      {processingId === repo.id ? 'Attaching...' : 'Attach Project'}
+                    </RippleButton>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {isLoading && (
+            <div className="p-12 text-center text-gray-400 text-sm">
+              <i className="fa-solid fa-circle-notch fa-spin mr-2"></i> Syncing with GitHub...
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
