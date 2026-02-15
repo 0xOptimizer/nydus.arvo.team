@@ -73,6 +73,7 @@ export default function DashboardSidebar() {
     { name: 'Dashboard', path: '/', icon: 'fa-chart-line' },
     { name: 'Projects', path: '/projects', icon: 'fa-network-wired' },
     { name: 'Deployments', path: '/deployments', icon: 'fa-rocket' },
+    { name: 'Maintenance', path: '/maintenance', icon: 'fa-screwdriver-wrench' },
     { name: 'Settings', path: '/settings', icon: 'fa-cogs' },
   ];
 
