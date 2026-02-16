@@ -131,7 +131,7 @@ export default function MaintenancePage() {
                     serviceId="arvo-team" 
                     description="Main website instance (Next.js 16 / PM2)"
                 />
-                <ServiceSection 
+                {/* <ServiceSection 
                     title="nydus.arvo.team" 
                     serviceId="nydus-ui" 
                     description="Internal management UI (Next.js 16 / PM2)"
@@ -145,7 +145,7 @@ export default function MaintenancePage() {
                     title="Nginx Gateway" 
                     serviceId="nginx" 
                     description="Global Reverse Proxy and SSL Termination"
-                />
+                /> */}
             </div>
         </div>
     );
