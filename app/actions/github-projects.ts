@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { auth } from '@/auth';
 
 const API_URL = 'http://127.0.0.1:4000/api';
 
@@ -17,10 +18,20 @@ export async function getAttachedProjects() {
 
 export async function attachProject(projectData: any) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            throw new Error('Unauthorized: No user session found');
+        }
+
+        const payload = {
+            ...projectData,
+            owner_discord_id: session.user.id
+        };
+
         const res = await fetch(`${API_URL}/github-projects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(projectData),
+            body: JSON.stringify(payload),
         });
         
         const data = await res.json();

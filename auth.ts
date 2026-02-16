@@ -35,10 +35,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       if (session.user && token.sub) {
-        session.user.image = token.picture
-        session.user.name = token.name
+        session.user.id = token.sub;
+        session.user.image = token.picture;
+        session.user.name = token.name;
       }
-      return session
+      return session;
     }
   },
   pages: {
