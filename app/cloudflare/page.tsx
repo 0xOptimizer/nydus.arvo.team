@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAttachedProjects } from '@/app/actions/github-projects';
+import { getProjects } from '@/app/actions/projects';
 import { getDNSRecords, createSubdomainRecord, deleteDNSRecord } from '@/app/actions/cloudflare';
 
 // --- UI Components ---
@@ -64,7 +64,7 @@ export default function DNSPage() {
         const init = async () => {
             setLoading(true);
             const [projData, dnsData] = await Promise.all([
-                getAttachedProjects(),
+                getProjects(),
                 getDNSRecords(1)
             ]);
             setProjects(projData);
