@@ -1,16 +1,23 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { auth } from '@/auth';
 
 const API_URL = 'http://127.0.0.1:4000/api';
 
 export async function getProjects() {
   try {
-    const res = await fetch(`${API_URL}/attached-projects`, { cache: 'no-store' });
+    const session = await auth();
+    if (!session?.user?.id) return [];
+
+    const res = await fetch(`${API_URL}/attached-projects?owner_discord_id=${session.user.id}`, { 
+      cache: 'no-store' 
+    });
+    
     if (!res.ok) throw new Error('Failed to fetch projects');
     return res.json();
   } catch (error) {
-    console.error(error);
+    console.error("Fetch Projects Error:", error);
     return [];
   }
 }
