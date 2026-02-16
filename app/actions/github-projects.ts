@@ -19,6 +19,7 @@ export async function getAttachedProjects() {
 export async function attachProject(projectData: any) {
     try {
         const session = await auth();
+        console.log(session);
         if (!session?.user?.id) {
             throw new Error('Unauthorized: No user session found');
         }
