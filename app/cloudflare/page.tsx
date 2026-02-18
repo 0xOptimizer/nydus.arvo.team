@@ -78,7 +78,7 @@ export default function DNSPage() {
             setRecords(dnsData || []);
             setLoading(false);
         };
-        // init();
+        init();
     }, []);
 
     // Refresh Records when page/search changes

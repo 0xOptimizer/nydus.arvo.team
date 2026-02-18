@@ -50,7 +50,7 @@ export default function ProjectsPage() {
   const [processingId, setProcessingId] = useState<number | null>(null);
 
   useEffect(() => {
-    // loadData();
+    loadData();
     setIsLoading(false);
     checkIntegrations().then((status) => setPatKey(status.hasPat));
   }, []);

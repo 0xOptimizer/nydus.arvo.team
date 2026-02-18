@@ -63,7 +63,7 @@ function DashboardContent() {
         setLoading(false)
       }
     }
-    // fetchData()
+    fetchData()
   }, [range])
 
   const aggregateBarData = (key: string) => {
