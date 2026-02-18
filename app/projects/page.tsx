@@ -50,7 +50,8 @@ export default function ProjectsPage() {
   const [processingId, setProcessingId] = useState<number | null>(null);
 
   useEffect(() => {
-    loadData();
+    // loadData();
+    setIsLoading(false);
     checkIntegrations().then((status) => setPatKey(status.hasPat));
   }, []);
 
@@ -65,7 +66,7 @@ export default function ProjectsPage() {
 
     if (githubData.success) {
       const attachedUrls = (attachedData || []).map((p: any) => p.url_path.toLowerCase());
-      const filtered = githubData.repos.filter((repo: any) => 
+      const filtered = githubData.repos.filter((repo: any) =>
         !attachedUrls.includes(repo.html_url.toLowerCase())
       );
       setAvailable(filtered);
@@ -76,7 +77,7 @@ export default function ProjectsPage() {
   const handleAttach = async (repo: any) => {
     setProcessingId(repo.id);
     const detection = await detectRepository(repo.html_url);
-    
+
     const projectData = {
       name: repo.name,
       owner: repo.owner.login,
@@ -100,22 +101,22 @@ export default function ProjectsPage() {
     if (result.success) await loadData();
   };
 
-  const filteredAvailable = available.filter(repo => 
+  const filteredAvailable = available.filter(repo =>
     repo.name.toLowerCase().includes(search.toLowerCase()) ||
     repo.owner.login.toLowerCase().includes(search.toLowerCase())
   ).sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="space-y-8 max-w-5xl">
-      
-      <div className="flex items-end justify-between pb-6">
+    <div className="space-y-8">
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
         <div>
           <h1 className="text-3xl font-bold text-foreground uppercase tracking-tight">Projects</h1>
           <p className="text-sm text-muted-foreground mt-2 font-medium">Manage repositories and synchronization</p>
         </div>
-        <div className="relative">
-          <Input 
-            placeholder="Search repositories..." 
+        <div className="relative flex items-center">
+          <Input
+            placeholder="Search repositories..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="bg-card border-border text-foreground min-w-64"
@@ -142,29 +143,25 @@ export default function ProjectsPage() {
         <h3 className="text-lg font-bold text-foreground uppercase tracking-wide border-b border-border pb-2">Attached Projects</h3>
         <div className="grid gap-4">
           {attached.map((project) => (
-            <Card key={project.project_uuid} className="p-6 border-border bg-card hover:border-primary transition-all duration-200 group">
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="flex items-center gap-4">
-                    <h3 className="text-xl font-bold text-foreground">{project.name}</h3>
-                    <Badge variant="secondary" className="text-[10px] uppercase">
+            <Card key={project.project_uuid} className="p-4 sm:p-6 border-border bg-card hover:border-primary transition-all duration-200 group">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-0">
+                <div className="w-full sm:w-auto">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                    <h3 className="text-lg sm:text-xl font-bold text-foreground line-clamp-1">{project.name}</h3>
+                    <Badge variant="secondary" className="text-[10px] uppercase shrink-0">
                       {project.visibility}
                     </Badge>
                   </div>
-                  <div className="text-sm text-muted-foreground font-mono mt-2 font-medium">
+                  <div className="text-xs sm:text-sm text-muted-foreground font-mono mt-1 sm:mt-2 font-medium">
                     {project.owner_login}
                   </div>
                 </div>
-                <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleDetach(project.project_uuid)}
-                    className="text-xs uppercase"
-                  >
+
+                <div className="flex w-full sm:w-auto gap-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 mt-2 sm:mt-0">
+                  <Button size="sm" variant="destructive" onClick={() => handleDetach(project.project_uuid)} className="text-xs uppercase flex-1 sm:flex-none">
                     Detach
                   </Button>
-                  <a href={project.url_path} target="_blank" className="inline-block bg-foreground text-background px-4 py-2 text-xs font-bold hover:bg-foreground/90 transition-colors uppercase">
+                  <a href={project.url_path} target="_blank" rel="noreferrer" className="inline-flex flex-1 sm:flex-none justify-center items-center bg-foreground text-background px-4 py-2 text-xs font-bold hover:bg-foreground/90 transition-colors uppercase rounded-md h-9">
                     Repo
                   </a>
                 </div>
@@ -186,8 +183,8 @@ export default function ProjectsPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-border bg-secondary">
-                <TableHead className="text-foreground font-bold uppercase text-xs">Repository</TableHead>
-                <TableHead className="text-right text-foreground font-bold uppercase text-xs">Action</TableHead>
+                <TableHead className="text-foreground font-bold uppercase text-xs px-4">Repository</TableHead>
+                <TableHead className="text-right text-foreground font-bold uppercase text-xs px-4">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
