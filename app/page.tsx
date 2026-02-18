@@ -2,9 +2,9 @@
 
 import * as React from "react"
 import dynamic from "next/dynamic"
-import { 
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Label, LabelList, 
-  Pie, PieChart, XAxis, YAxis 
+import {
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Label, LabelList,
+  Pie, PieChart, XAxis, YAxis
 } from "recharts"
 import {
   Card,
@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { getCloudflareAnalytics } from "@/app/actions/cloudflare"
+import { formatDate } from "@/lib/utils"
 
 const chartConfig = {
   visitors: { label: "Visitors", color: "var(--primary)" },
@@ -44,11 +45,15 @@ function DashboardContent() {
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
+    setLoading(false)
     async function fetchData() {
       setLoading(true)
       try {
         const response = await getCloudflareAnalytics(Number(range))
         if (response && response.data) {
+          response.data.forEach((item: any) => {
+            item.timestamp = formatDate(item.timestamp)
+          })
           setData(response.data)
           setGranularity(response.granularity)
         }
@@ -58,7 +63,7 @@ function DashboardContent() {
         setLoading(false)
       }
     }
-    fetchData()
+    // fetchData()
   }, [range])
 
   const aggregateBarData = (key: string) => {
@@ -95,7 +100,7 @@ function DashboardContent() {
 
   const formatDate = (value: string) => {
     const date = new Date(value)
-    return granularity === "hourly" 
+    return granularity === "hourly"
       ? date.toLocaleTimeString("en-US", { hour: "numeric" })
       : date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
   }
@@ -111,20 +116,20 @@ function DashboardContent() {
             <SelectValue placeholder="Select Range" />
           </SelectTrigger>
           <SelectContent className="bg-popover border-border text-popover-foreground">
-            <SelectItem 
-              value="1" 
+            <SelectItem
+              value="1"
               className="focus:bg-secondary focus:text-primary-foreground cursor-pointer"
             >
               Last 24 Hours
             </SelectItem>
-            <SelectItem 
-              value="7" 
+            <SelectItem
+              value="7"
               className="focus:bg-secondary focus:text-primary-foreground cursor-pointer"
             >
               Last 7 Days
             </SelectItem>
-            <SelectItem 
-              value="30" 
+            <SelectItem
+              value="30"
               className="focus:bg-secondary focus:text-primary-foreground cursor-pointer"
             >
               Last 30 Days
@@ -150,36 +155,36 @@ function DashboardContent() {
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <ChartContainer config={chartConfig} className="aspect-auto h-[350px] w-full">
-            <AreaChart data={data} margin={{ left: 20, right: 20, top: 20, bottom: 20 }}>
+            <AreaChart data={data} margin={{ left: -20, right: 20, top: 20, bottom: 20 }}>
               <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="timestamp" 
-                tickFormatter={formatDate} 
-                tickLine={false} 
-                axisLine={false} 
-                tick={{fill: "var(--muted-foreground)", fontSize: 11}} 
+              <XAxis
+                dataKey="timestamp"
+                tickFormatter={formatDate}
+                tickLine={false}
+                axisLine={false}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
                 minTickGap={32}
               />
-              <YAxis 
-                tickLine={false} 
-                axisLine={false} 
-                tick={{fill: "var(--muted-foreground)", fontSize: 11}}
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
               >
-                <Label
+                {/* <Label
                   value="Visitors"
                   angle={-90}
                   position="insideLeft"
                   style={{ textAnchor: "middle", fill: "var(--muted-foreground)", fontSize: 12, fontWeight: 500 }}
-                />
+                /> */}
               </YAxis>
               <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
-              <Area 
-                dataKey="visitors" 
-                type="monotone" 
-                fill="var(--primary)" 
+              <Area
+                dataKey="visitors"
+                type="monotone"
+                fill="var(--primary)"
                 fillOpacity={0.15}
-                stroke="var(--primary)" 
-                strokeWidth={1} 
+                stroke="var(--primary)"
+                strokeWidth={1}
                 activeDot={{ r: 6, strokeWidth: 0, fill: "var(--primary)" }}
               />
             </AreaChart>
@@ -189,28 +194,75 @@ function DashboardContent() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bg-transparent border-zinc-800">
-          <CardHeader><CardTitle className="text-white">Devices</CardTitle></CardHeader>
+          <CardHeader className="pb-0">
+            <CardTitle className="text-white text-center">Device Distribution</CardTitle>
+          </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[250px]">
               <PieChart>
-                <ChartTooltip content={<ChartTooltipContent nameKey="visitors" hideLabel />} />
-                <Pie data={deviceData} dataKey="visitors" nameKey="browser" innerRadius={60} strokeWidth={5}>
-                  <LabelList dataKey="browser" className="fill-white" stroke="none" fontSize={12} formatter={(v: string) => v.toUpperCase()} />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                <Pie
+                  data={deviceData}
+                  dataKey="visitors"
+                  nameKey="browser"
+                  innerRadius={75}
+                  outerRadius={100}
+                  paddingAngle={8}
+                  stroke="none"
+                >
+                  {deviceData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={index === 0 ? "#0f9" : "#18181b"}
+                      className="hover:opacity-80 transition-opacity cursor-pointer"
+                    />
+                  ))}
+
+                  <Label
+                    content={({ viewBox }) => {
+                      if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                        return (
+                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                            <tspan x={viewBox.cx} y={viewBox.cy} className="fill-white text-2xl font-bold">
+                              {deviceData.reduce((acc, curr) => acc + curr.visitors, 0)}
+                            </tspan>
+                            <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 20} className="fill-zinc-500 text-xs uppercase tracking-widest">
+                              Total
+                            </tspan>
+                          </text>
+                        )
+                      }
+                    }}
+                  />
                 </Pie>
               </PieChart>
             </ChartContainer>
+
+            <div className="flex flex-wrap justify-center gap-4 mt-4">
+              {deviceData.map((entry, index) => (
+                <div key={entry.browser} className="flex items-center gap-2">
+                  <div
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: index === 0 ? "#0f9" : "#27272a" }}
+                  />
+                  <span className="text-[10px] uppercase font-bold text-zinc-400">
+                    {entry.browser}
+                  </span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
-        <Card className="bg-transparent border-zinc-800">
+        <Card className="bg-transparent border-zinc-800 w-full min-w-0">
           <CardHeader><CardTitle className="text-white">Top Countries</CardTitle></CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[250px]">
-              <BarChart data={aggregateBarData("countries")} layout="vertical" margin={{ left: 0, right: 40 }}>
+            <ChartContainer config={chartConfig} className="h-[250px] w-full">
+              <BarChart data={aggregateBarData("countries")} layout="vertical" margin={{ left: 0, right: 60 }}>
                 <YAxis dataKey="label" type="category" hide />
                 <XAxis type="number" hide />
                 <Bar dataKey="visitors" fill="var(--primary)" radius={4}>
-                  <LabelList dataKey="label" position="insideLeft" className="fill-white font-medium" fontSize={12} />
-                  <LabelList dataKey="visitors" position="right" className="fill-zinc-400" fontSize={12} />
+                  <LabelList dataKey="label" position="insideLeft" className="fill-black font-bold" fontSize={14}/>
+                  <LabelList dataKey="visitors" position="right" className="fill-zinc-400" fontSize={14}/>
                 </Bar>
               </BarChart>
             </ChartContainer>
@@ -219,23 +271,29 @@ function DashboardContent() {
       </div>
 
       <Card className="bg-transparent border-zinc-800">
-        <CardHeader><CardTitle className="text-white">Bandwidth (GB)</CardTitle></CardHeader>
+        <CardHeader><div className="grid gap-1">
+            <CardTitle className="text-base font-medium text-white">Bandwidth</CardTitle>
+            <CardDescription className="text-zinc-400">
+              In gigabytes (GB)
+            </CardDescription>
+          </div>
+        </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="aspect-auto h-[300px] w-full">
-            <AreaChart data={data} margin={{ left: 20, right: 20, top: 20, bottom: 20 }}>
+            <AreaChart data={data} margin={{ left: -40, right: 20, top: 20, bottom: 20 }}>
               <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="timestamp" tickFormatter={formatDate} tickLine={false} axisLine={false} tick={{fill: "var(--muted-foreground)", fontSize: 11}} />
-              <YAxis 
-                tickLine={false} 
-                axisLine={false} 
-                tick={{fill: "var(--muted-foreground)", fontSize: 11}}
+              <XAxis dataKey="timestamp" tickFormatter={formatDate} tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
               >
-                <Label
+                {/* <Label
                   value="Gigabytes"
                   angle={-90}
                   position="insideLeft"
                   style={{ textAnchor: "middle", fill: "var(--muted-foreground)", fontSize: 12, fontWeight: 500 }}
-                />
+                /> */}
               </YAxis>
               <ChartTooltip content={<ChartTooltipContent />} />
               <Area dataKey="bandwidth_gb" type="monotone" fill="transparent" stroke="var(--primary)" strokeWidth={1} />
@@ -245,27 +303,31 @@ function DashboardContent() {
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">
-        <Card className="bg-transparent border-zinc-800">
-          <CardHeader><CardTitle className="text-white">Browsers</CardTitle></CardHeader>
+        <Card className="bg-transparent border-zinc-800 w-full min-w-0">
+          <CardHeader><CardTitle className="text-white">Top Countries</CardTitle></CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig}>
-              <BarChart data={aggregateBarData("browsers")} layout="vertical" margin={{ left: 0, right: 20 }}>
+            <ChartContainer config={chartConfig} className="h-[250px] w-full">
+              <BarChart data={aggregateBarData("browsers")} layout="vertical" margin={{ left: 0, right: 60 }}>
                 <YAxis dataKey="label" type="category" hide />
+                <XAxis type="number" hide />
                 <Bar dataKey="visitors" fill="var(--primary)" radius={4}>
-                  <LabelList dataKey="label" position="insideLeft" className="fill-white" fontSize={10} />
+                  <LabelList dataKey="label" position="insideLeft" className="fill-black font-bold" fontSize={14}/>
+                  <LabelList dataKey="visitors" position="right" className="fill-zinc-400" fontSize={14}/>
                 </Bar>
               </BarChart>
             </ChartContainer>
           </CardContent>
         </Card>
-        <Card className="bg-transparent border-zinc-800">
-          <CardHeader><CardTitle className="text-white">Operating Systems</CardTitle></CardHeader>
+        <Card className="bg-transparent border-zinc-800 w-full min-w-0">
+          <CardHeader><CardTitle className="text-white">Top Countries</CardTitle></CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig}>
-              <BarChart data={aggregateBarData("os")} layout="vertical" margin={{ left: 0, right: 20 }}>
+            <ChartContainer config={chartConfig} className="h-[250px] w-full">
+              <BarChart data={aggregateBarData("os")} layout="vertical" margin={{ left: 0, right: 60 }}>
                 <YAxis dataKey="label" type="category" hide />
+                <XAxis type="number" hide />
                 <Bar dataKey="visitors" fill="var(--primary)" radius={4}>
-                  <LabelList dataKey="label" position="insideLeft" className="fill-white" fontSize={10} />
+                  <LabelList dataKey="label" position="insideLeft" className="fill-black font-bold" fontSize={14}/>
+                  <LabelList dataKey="visitors" position="right" className="fill-zinc-400" fontSize={14}/>
                 </Bar>
               </BarChart>
             </ChartContainer>

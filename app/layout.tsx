@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { auth } from "@/auth";
 import TopBar from "@/components/TopBar";
 import DashboardSidebar from "@/components/DashboardSidebar";
-import { auth } from "@/auth";
+import { SidebarProvider } from "@/context/SidebarContext";
 
 export const metadata: Metadata = {
   title: "Nydus | Arvo",
@@ -30,17 +31,21 @@ export default async function RootLayout({
           </div>
         ) : (
           <>
-            <div className="flex-none">
-              <TopBar />
-            </div>
-            <div className="flex flex-1 min-h-0 bg-background">
-              <aside className="w-64 border-r border-border bg-card flex-none overflow-y-auto">
-                <DashboardSidebar />
-              </aside>
-              <main className="flex-1 overflow-y-auto bg-background p-8">
-                {children}
-              </main>
-            </div>
+            <SidebarProvider>
+              <div className="flex flex-col h-screen overflow-hidden bg-background">
+                <div className="flex-none">
+                  <TopBar />
+                </div>
+
+                <div className="flex flex-1 overflow-hidden relative">
+                  <DashboardSidebar />
+                  <main className="flex-1 overflow-y-auto p-8 w-full overflow-x-hidden">
+                    {children}
+                  </main>
+                </div>
+
+              </div>
+            </SidebarProvider>
           </>
         )}
       </body>

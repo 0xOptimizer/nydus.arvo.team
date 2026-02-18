@@ -32,7 +32,7 @@ const RippleButton = ({ children, onClick, className, disabled, variant = 'prima
 
     const baseStyle = "relative overflow-hidden transition-all duration-200 px-4 py-2 text-xs font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed";
     const variants: any = {
-        primary: "bg-primary text-primary-foreground hover:bg-primary/90",
+        primary: "bg-primary text-black hover:bg-primary/90",
         danger: "bg-red-900/50 text-red-200 hover:bg-red-900/70 border border-red-700/50",
         outline: "bg-secondary text-foreground border border-border hover:bg-border"
     };
@@ -54,13 +54,13 @@ export default function DNSPage() {
     // Data State
     const [projects, setProjects] = useState<any[]>([]);
     const [records, setRecords] = useState<any[]>([]);
-    
+
     // Form State
     const [selectedProject, setSelectedProject] = useState<string>('');
     const [subdomain, setSubdomain] = useState<string>('');
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [page, setPage] = useState<number>(1);
-    
+
     // UI State
     const [loading, setLoading] = useState<boolean>(true);
     const [creating, setCreating] = useState<boolean>(false);
@@ -78,7 +78,7 @@ export default function DNSPage() {
             setRecords(dnsData || []);
             setLoading(false);
         };
-        init();
+        // init();
     }, []);
 
     // Refresh Records when page/search changes
@@ -96,7 +96,7 @@ export default function DNSPage() {
     const handleProjectSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const projectId = e.target.value;
         setSelectedProject(projectId);
-        
+
         if (projectId) {
             const project = projects.find(p => p.uuid === projectId);
             if (project) {
@@ -145,7 +145,7 @@ export default function DNSPage() {
     // Delete Action
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this DNS record? This will break the live site.')) return;
-        
+
         setLoading(true);
         const res = await deleteDNSRecord(id);
         if (res.success) {
@@ -183,8 +183,8 @@ export default function DNSPage() {
                     {/* Project Selector */}
                     <div className="md:col-span-4">
                         <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Select Project</label>
-                        <select 
-                            value={selectedProject} 
+                        <select
+                            value={selectedProject}
                             onChange={handleProjectSelect}
                             className="w-full bg-secondary border border-border text-foreground text-sm p-2 focus:ring-primary focus:border-primary outline-none transition-all"
                         >
@@ -200,12 +200,12 @@ export default function DNSPage() {
                     {/* Subdomain Input (Conditional) */}
                     <div className={`md:col-span-6 transition-all duration-300 ${selectedProject ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
                         <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">
-                            Assigned Subdomain 
+                            Assigned Subdomain
                             {!isValidSubdomain(subdomain) && subdomain.length > 0 && <span className="text-red-400 ml-2 normal-case italic">(Invalid format)</span>}
                         </label>
                         <div className="flex">
-                            <Input 
-                                type="text" 
+                            <Input
+                                type="text"
                                 value={subdomain}
                                 onChange={(e) => setSubdomain(e.target.value.toLowerCase().trim())}
                                 placeholder="project-name"
@@ -219,8 +219,8 @@ export default function DNSPage() {
 
                     {/* Action Button */}
                     <div className="md:col-span-2">
-                        <RippleButton 
-                            onClick={handleCreate} 
+                        <RippleButton
+                            onClick={handleCreate}
                             disabled={!selectedProject || !subdomain || creating}
                             className="w-full h-10 flex items-center justify-center"
                         >
@@ -232,17 +232,17 @@ export default function DNSPage() {
 
             {/* List Section */}
             <div className="space-y-4">
-                <div className="flex justify-between items-center">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                     <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
                         Active Records
                     </h3>
                     <div className="flex gap-2">
-                         <Input 
-                            type="text" 
-                            placeholder="Search records..." 
+                        <Input
+                            type="text"
+                            placeholder="Search records..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-card border-border text-foreground w-64 text-xs"
+                            className="bg-card w-full md:w-64 border-border text-foreground text-xs"
                         />
                     </div>
                 </div>
@@ -252,7 +252,7 @@ export default function DNSPage() {
                         <div className="p-8 text-center text-muted-foreground text-sm">Loading DNS records...</div>
                     ) : (
                         <Table>
-                            <TableHeader className="bg-secondary border-b border-border">
+                            <TableHeader className="bg-secondary border-b border-border md:block hidden">
                                 <TableRow className="border-border">
                                     <TableHead className="font-bold text-foreground uppercase text-xs w-24">Type</TableHead>
                                     <TableHead className="font-bold text-foreground uppercase text-xs">Name</TableHead>
@@ -263,23 +263,27 @@ export default function DNSPage() {
                             </TableHeader>
                             <TableBody>
                                 {records.map((record: any) => (
-                                    <TableRow key={record.id} className="border-border hover:bg-secondary transition-colors">
-                                        <TableCell>
-                                            <Badge variant={record.type === 'A' ? 'default' : 'secondary'} className="text-xs font-bold">
+                                    <TableRow key={record.id} className="relative block md:table-row border border-border md:border-0 md:border-b hover:bg-secondary transition-colors rounded-none p-4 md:p-0 bg-card md:bg-transparent shadow-sm md:shadow-none">
+                                        <TableCell className="block md:table-cell p-0 md:p-4 mb-2 md:mb-0 align-middle">
+                                            <Badge variant={record.type === 'A' ? 'default' : 'secondary'}className={`text-xs font-bold uppercase ${record.type === 'A' ? 'text-black' : 'text-muted-foreground'}`}>
                                                 {record.type}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="font-mono text-foreground">{record.name}</TableCell>
-                                        <TableCell className="font-mono text-muted-foreground text-xs">{record.content}</TableCell>
-                                        <TableCell>
+                                        <TableCell className="block md:table-cell p-0 md:p-4 mb-1 md:mb-0 font-mono text-foreground text-sm md:text-base font-bold md:font-normal align-middle">{record.name}</TableCell>
+                                        <TableCell className="block md:table-cell p-0 md:p-4 mb-4 md:mb-0 font-mono text-muted-foreground text-xs break-all align-middle">{record.content}</TableCell>
+                                        <TableCell className="absolute md:relative top-4 right-4 md:top-auto md:right-auto block md:table-cell p-0 md:p-4 align-middle">
                                             {record.proxied ? (
                                                 <span className="text-primary font-bold text-xs"><i className="fa-solid fa-cloud"></i> Proxied</span>
                                             ) : (
                                                 <span className="text-muted-foreground text-xs"><i className="fa-solid fa-cloud"></i> DNS Only</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-right">
-                                            <RippleButton variant="danger" onClick={() => handleDelete(record.id)} className="px-3 py-1 text-[10px]">
+                                        <TableCell className="block md:table-cell p-0 md:p-4 pt-3 md:pt-4 mt-2 md:mt-0 border-t border-border/50 md:border-0 text-right align-middle">
+                                            <RippleButton
+                                                variant="danger"
+                                                onClick={() => handleDelete(record.id)}
+                                                className="w-full md:w-auto px-3 py-2 md:py-1 text-xs md:text-[10px]"
+                                            >
                                                 Delete
                                             </RippleButton>
                                         </TableCell>
@@ -299,9 +303,9 @@ export default function DNSPage() {
 
                 {/* Pagination */}
                 <div className="flex justify-center gap-2 mt-4">
-                    <RippleButton 
-                        variant="outline" 
-                        disabled={page === 1} 
+                    <RippleButton
+                        variant="outline"
+                        disabled={page === 1}
                         onClick={() => setPage(p => Math.max(1, p - 1))}
                     >
                         Previous
@@ -309,8 +313,8 @@ export default function DNSPage() {
                     <span className="px-4 py-2 text-sm font-bold text-foreground bg-secondary border border-border">
                         Page {page}
                     </span>
-                    <RippleButton 
-                        variant="outline" 
+                    <RippleButton
+                        variant="outline"
                         disabled={records.length < 20} // Simple check, ideally API returns total pages
                         onClick={() => setPage(p => p + 1)}
                     >

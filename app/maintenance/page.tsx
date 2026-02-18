@@ -24,7 +24,7 @@ const RippleButton = ({ children, onClick, className, disabled }: any) => {
     };
     return (
         <button disabled={disabled} onClick={createRipple} className={`relative overflow-hidden transition-all duration-200 ${className}`}>
-            <span className="relative z-10">{children}</span>
+            <span className="relative z-10 text-black">{children}</span>
             <style jsx global>{`
                 span.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple 600ms linear; background-color: rgba(255, 255, 255, 0.3); pointer-events: none; }
                 @keyframes ripple { to { transform: scale(4); opacity: 0; } }
@@ -37,7 +37,7 @@ const ServiceSection = ({ title, serviceId, description }: { title: string, serv
     const [logs, setLogs] = useState<string>('Loading logs...');
     const [status, setStatus] = useState<string>('Idle');
     const [isProcessing, setIsProcessing] = useState(false);
-    const [progress, setProgress] = useState<{status: string, message: string} | null>(null);
+    const [progress, setProgress] = useState<{ status: string, message: string } | null>(null);
 
     const fetchLogs = async () => {
         const result = await getServiceLogs(serviceId);
@@ -54,7 +54,7 @@ const ServiceSection = ({ title, serviceId, description }: { title: string, serv
     const handleRestart = () => {
         setIsProcessing(true);
         setProgress({ status: 'progress', message: 'Connecting to local bridge...' });
-        
+
         const eventSource = new EventSource(`/api/maintenance/restart/${serviceId}`);
 
         eventSource.onmessage = (event) => {
@@ -64,7 +64,7 @@ const ServiceSection = ({ title, serviceId, description }: { title: string, serv
             if (data.done) {
                 eventSource.close();
                 setIsProcessing(false);
-                fetchLogs(); 
+                fetchLogs();
             }
         };
 
@@ -77,17 +77,18 @@ const ServiceSection = ({ title, serviceId, description }: { title: string, serv
     };
 
     return (
-        <Card className="p-6 border-border bg-card hover:border-primary transition-all duration-200">
-            <div className="flex justify-between items-start mb-4">
-                <div>
-                    <h3 className="text-xl font-bold text-foreground uppercase tracking-tight">{title}</h3>
+        <Card className="p-4 sm:p-6 border-border bg-card hover:border-primary transition-all duration-200 w-full min-w-0">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <div className="w-full sm:w-auto">
+                    <h3 className="text-lg sm:text-xl font-bold text-foreground uppercase tracking-tight line-clamp-1">{title}</h3>
                     <p className="text-xs text-muted-foreground mt-1">{description}</p>
                 </div>
-                <RippleButton 
+
+                <RippleButton
                     disabled={isProcessing}
                     onClick={handleRestart}
-                    className={`px-6 py-2 text-xs font-bold uppercase tracking-widest ${
-                        isProcessing ? 'bg-secondary text-muted-foreground' : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    className={`w-full sm:w-auto px-6 py-3 sm:py-2 text-xs font-bold uppercase tracking-widest 
+                        ${isProcessing ? 'bg-secondary text-muted-foreground' : 'bg-primary text-primary-foreground hover:bg-primary/90'
                     }`}
                 >
                     {isProcessing ? 'Syncing...' : 'Restart & Update'}
@@ -96,23 +97,21 @@ const ServiceSection = ({ title, serviceId, description }: { title: string, serv
 
             {/* PROGRESS INDICATOR */}
             {progress && (
-                <Alert className={`mb-4 text-xs font-bold border ${
-                    progress.status === 'error' ? 'bg-red-950/30 border-red-900/50 text-red-200' :
-                    progress.status === 'success' ? 'bg-green-950/30 border-green-900/50 text-green-200' :
-                    'bg-primary/10 border-primary/30 text-primary'
-                }`}>
-                    <i className={`fa-solid ${
-                        progress.status === 'progress' ? 'fa-spinner fa-spin' : 
-                        progress.status === 'success' ? 'fa-check-double' : 'fa-circle-exclamation'
-                    } mr-2`}></i>
+                <Alert className={`mb-4 text-xs font-bold border ${progress.status === 'error' ? 'bg-red-950/30 border-red-900/50 text-red-200' :
+                        progress.status === 'success' ? 'bg-green-950/30 border-green-900/50 text-green-200' :
+                            'bg-primary/10 border-primary/30 text-primary'
+                    }`}>
+                    <i className={`fa-solid ${progress.status === 'progress' ? 'fa-spinner fa-spin' :
+                            progress.status === 'success' ? 'fa-check-double' : 'fa-circle-exclamation'
+                        } mr-2`}></i>
                     {progress.message}
                 </Alert>
             )}
 
             {/* LOG VIEWER */}
-            <div className="relative">
+            <div className="relative w-full">
                 <div className="absolute top-0 right-0 bg-secondary px-2 py-1 text-[9px] font-bold text-muted-foreground uppercase z-10">Live Console</div>
-                <pre className="bg-background text-primary p-4 text-[11px] font-mono h-64 overflow-y-auto border border-border shadow-inner">
+                <pre className="bg-background scrollbar-none text-primary w-full p-4 pt-8 sm:pt-4 text-[11px] font-mono h-48 sm:h-64 overflow-y-auto overflow-x-auto whitespace-pre border border-border shadow-inner">
                     {logs}
                 </pre>
             </div>
@@ -122,16 +121,16 @@ const ServiceSection = ({ title, serviceId, description }: { title: string, serv
 
 export default function MaintenancePage() {
     return (
-        <div className="space-y-8 max-w-5xl pb-20">
+        <div className="space-y-8 pb-20">
             <div className="pb-6 border-b border-border">
                 <h1 className="text-3xl font-bold text-foreground uppercase tracking-tight">System Maintenance</h1>
                 <p className="text-sm text-muted-foreground mt-2 font-medium">Global service synchronization and log monitoring</p>
             </div>
 
             <div className="grid gap-8">
-                <ServiceSection 
-                    title="arvo.team" 
-                    serviceId="arvo-team" 
+                <ServiceSection
+                    title="arvo.team"
+                    serviceId="arvo-team"
                     description="Main website instance (Next.js 16 / PM2)"
                 />
                 {/* <ServiceSection 

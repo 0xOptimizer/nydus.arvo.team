@@ -2,6 +2,12 @@ import { auth } from "@/auth"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
+import MenuToggle from "./MenuToggle"
+
+type TopBarProps = {
+  isOpen?: boolean,
+  setIsOpen?: (open: boolean) => void
+}
 
 export default async function TopBar() {
   const session = await auth()
@@ -10,6 +16,7 @@ export default async function TopBar() {
   return (
     <header className="w-full h-16 bg-card border-b border-border flex items-center justify-between px-6 sticky top-0 z-50">
       <div className="flex items-center gap-6">
+        <MenuToggle />
         <div className="font-bold text-xl text-foreground tracking-tight uppercase flex items-baseline gap-2">
           <span className="bg-gradient-to-r from-primary to-muted-foreground bg-clip-text text-transparent">
             Nydus
