@@ -37,6 +37,22 @@ const PortControlSection = () => {
     const [isToggling, setIsToggling] = useState(false);
     const [portActive, setPortActive] = useState<boolean>(false);
 
+    const checkStatus = async () => {
+        try {
+            const res = await fetch('/api/maintenance/toggle_port/nydus');
+            const data = await res.json();
+            if (res.ok) {
+                setPortActive(data.running);
+            }
+        } catch (err) {
+            console.error('Failed to fetch port status:', err);
+        }
+    };
+
+    useEffect(() => {
+        checkStatus();
+    }, []);
+
     const handleTogglePort = async (action: 'start' | 'stop') => {
         setIsToggling(true);
         try {
@@ -59,7 +75,7 @@ const PortControlSection = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h3 className="text-lg sm:text-xl font-bold text-foreground uppercase tracking-tight">Public API Gateway</h3>
-                    <p className="text-xs text-muted-foreground mt-1">Status control for Public Port 5013</p>
+                    <p className="text-xs text-muted-foreground mt-1">Status control for Public Port 5013 (Nydus External Access)</p>
                 </div>
                 <RippleButton
                     disabled={isToggling}

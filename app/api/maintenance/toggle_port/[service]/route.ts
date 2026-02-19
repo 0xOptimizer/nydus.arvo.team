@@ -33,6 +33,25 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
     });
 }
 
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ service: string }> }
+) {
+    try {
+        const { service } = await params;
+        if (service !== 'nydus') return NextResponse.json({ running: false });
+
+        const res = await fetchWithAuth('/public-status', { 
+            method: 'GET',
+            cache: 'no-store' 
+        });
+        const data = await res.json();
+        return NextResponse.json(data);
+    } catch (err) {
+        return NextResponse.json({ running: false });
+    }
+}
+
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ service: string }> }
@@ -45,13 +64,13 @@ export async function POST(
             return NextResponse.json({ error: 'Service does not support port toggling' }, { status: 400 });
         }
 
-        const botRes = await fetchWithAuth('/toggle-public', {
+        const res = await fetchWithAuth('/toggle-public', {
             method: 'POST',
             body: JSON.stringify({ action: body.action }),
         });
 
-        const data = await botRes.json();
-        return NextResponse.json(data, { status: botRes.status });
+        const data = await res.json();
+        return NextResponse.json(data, { status: res.status });
     } catch (err: any) {
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
