@@ -82,7 +82,7 @@ function SettingsContent() {
   if (!settings) return null;
 
   return (
-    <div className="max-w-3xl">
+    <div>
       <div className="flex items-center justify-between border-b border-border pb-6 mb-8">
         <div>
             <h1 className="text-3xl font-bold text-foreground uppercase tracking-tight">System Settings</h1>
@@ -96,7 +96,7 @@ function SettingsContent() {
         )}
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-8 max-w-3xl mx-auto">
         
         <Card className="border-border bg-card p-8">
             <div className="flex items-center gap-3 mb-6 border-b border-border pb-4">
