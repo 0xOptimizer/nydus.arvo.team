@@ -2,27 +2,49 @@
 
 import { revalidatePath } from 'next/cache';
 
-const BOT_API_URL = process.env.BOT_API_URL || 'http://127.0.0.1:4000/api';
-const VPS_IP = process.env.ARVO_VPS_IP || '127.0.0.1';
+const ENV = process.env.ENVIRONMENT || 'production';
+const IS_DEV = ENV === 'development';
+
+const VPS_PUBLIC_IP = process.env.ARVO_VPS_IP || '127.0.0.1';
+const VPS_PUBLIC_PORT = process.env.ARVO_VPS_API_PORT || '5013';
+const VPS_INTERNAL_IP = process.env.ARVO_VPS_INTERNAL_IP || '127.0.0.1';
+const VPS_INTERNAL_PORT = process.env.ARVO_VPS_INTERNAL_API_PORT || '4000';
+const AUTH_KEY = process.env.ARVO_NYDUS_API_KEY || '';
+
+const API_BASE = IS_DEV
+    ? `http://${VPS_PUBLIC_IP}:${VPS_PUBLIC_PORT}/api`
+    : `http://${VPS_INTERNAL_IP}:${VPS_INTERNAL_PORT}/api`;
+
+async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
+    // Only attach X-Auth-Key if in development/public mode
+    if (IS_DEV) {
+        options.headers = {
+            ...(options.headers || {}),
+            'Content-Type': 'application/json',
+            'X-Auth-Key': AUTH_KEY
+        };
+    } else {
+        options.headers = {
+            ...(options.headers || {}),
+            'Content-Type': 'application/json'
+        };
+    }
+
+    const res = await fetch(`${API_BASE}${endpoint}`, { ...options, cache: 'no-store' });
+
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Request failed with status ${res.status}`);
+    }
+
+    return res.json();
+}
 
 export async function getDNSRecords(page: number = 1, search: string = '') {
     try {
-        const query = new URLSearchParams({ 
-            page: page.toString(), 
-            per_page: '20' 
-        });
+        const query = new URLSearchParams({ page: page.toString(), per_page: '20' });
         if (search) query.append('name', search);
-
-        const res = await fetch(`${BOT_API_URL}/cloudflare/records?${query}`, { 
-            cache: 'no-store' 
-        });
-        
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error || 'Failed to fetch records');
-        }
-        
-        return await res.json();
+        return await fetchWithAuth(`/cloudflare/records?${query}`);
     } catch (error: any) {
         return { success: false, error: error.message, result: [] };
     }
@@ -33,21 +55,12 @@ export async function createSubdomainRecord(subdomain: string, comment: string =
         const payload = {
             type: 'A',
             name: `${subdomain}.arvo.team`,
-            content: VPS_IP,
+            content: IS_DEV ? VPS_PUBLIC_IP : VPS_INTERNAL_IP,
             proxied: true,
             ttl: 1,
-            comment: comment
+            comment
         };
-
-        const res = await fetch(`${BOT_API_URL}/cloudflare/records`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Creation failed');
-
+        const data = await fetchWithAuth(`/cloudflare/records`, { method: 'POST', body: JSON.stringify(payload) });
         revalidatePath('/dns');
         return { success: true, result: data };
     } catch (error: any) {
@@ -57,15 +70,7 @@ export async function createSubdomainRecord(subdomain: string, comment: string =
 
 export async function deleteDNSRecord(recordId: string) {
     try {
-        const res = await fetch(`${BOT_API_URL}/cloudflare/records/${recordId}`, {
-            method: 'DELETE',
-        });
-        
-        if (!res.ok) {
-            const data = await res.json();
-            throw new Error(data.error || 'Delete failed');
-        }
-
+        await fetchWithAuth(`/cloudflare/records/${recordId}`, { method: 'DELETE' });
         revalidatePath('/dns');
         return { success: true };
     } catch (error: any) {
@@ -74,37 +79,14 @@ export async function deleteDNSRecord(recordId: string) {
 }
 
 export async function getCloudflareAnalytics(days: number = 30) {
-    const BOT_API_URL = process.env.BOT_API_URL;
-    
     try {
-        const res = await fetch(`${BOT_API_URL}/cloudflare/dynamic-analytics?days=${days}`, { 
-            cache: 'no-store',
-            signal: AbortSignal.timeout(8000)
-        });
-        
-        if (!res.ok) {
-            const text = await res.text();
-            console.error(`[Next.js Action] API Error (${res.status}): ${text}`);
-            return { data: [], granularity: 'unknown' };
-        }
-        
-        const result = await res.json();
+        const result = await fetchWithAuth(`/cloudflare/dynamic-analytics?days=${days}`, { signal: AbortSignal.timeout(8000) });
         return {
             data: result.data || [],
             granularity: result.granularity || (days <= 3 ? 'hourly' : 'daily')
         };
-
     } catch (error: unknown) {
-        if (error instanceof Error) {
-            if (error.name === 'AbortError') {
-                console.error(`[Next.js Action] Fetch timeout after 8s`);
-            } else {
-                console.error(`[Next.js Action] CRITICAL FETCH ERROR: ${error.message}`);
-            }
-        } else {
-            console.error(`[Next.js Action] UNKNOWN ERROR TYPE:`, error);
-        }
-        
+        console.error('[Next.js Action] Fetch Error:', error);
         return { data: [], granularity: 'error' };
     }
 }
