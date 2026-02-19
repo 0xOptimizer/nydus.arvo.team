@@ -24,7 +24,7 @@ const RippleButton = ({ children, onClick, className, disabled }: any) => {
     };
     return (
         <button disabled={disabled} onClick={createRipple} className={`relative overflow-hidden transition-all duration-200 ${className}`}>
-            <span className="relative z-10 text-black">{children}</span>
+            <span className="relative z-10">{children}</span>
             <style jsx global>{`
                 span.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple 600ms linear; background-color: rgba(255, 255, 255, 0.3); pointer-events: none; }
                 @keyframes ripple { to { transform: scale(4); opacity: 0; } }
@@ -33,9 +33,51 @@ const RippleButton = ({ children, onClick, className, disabled }: any) => {
     );
 };
 
+const PortControlSection = () => {
+    const [isToggling, setIsToggling] = useState(false);
+    const [portActive, setPortActive] = useState<boolean>(false);
+
+    const handleTogglePort = async (action: 'start' | 'stop') => {
+        setIsToggling(true);
+        try {
+            const res = await fetch('/api/maintenance/toggle_port/nydus', {
+                method: 'POST',
+                body: JSON.stringify({ action }),
+            });
+            if (res.ok) {
+                setPortActive(action === 'start');
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsToggling(false);
+        }
+    };
+
+    return (
+        <Card className="p-4 sm:p-6 border-border bg-card hover:border-primary transition-all duration-200 w-full mb-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h3 className="text-lg sm:text-xl font-bold text-foreground uppercase tracking-tight">Public API Gateway</h3>
+                    <p className="text-xs text-muted-foreground mt-1">Status control for Public Port 5013</p>
+                </div>
+                <RippleButton
+                    disabled={isToggling}
+                    onClick={() => handleTogglePort(portActive ? 'stop' : 'start')}
+                    className={`w-full sm:w-auto px-8 py-3 text-xs font-bold uppercase tracking-widest border transition-all
+                        ${portActive 
+                            ? 'bg-green-500/10 border-green-500 text-green-500 hover:bg-green-500/20' 
+                            : 'bg-red-500/10 border-red-500 text-red-500 hover:bg-red-500/20'}`}
+                >
+                    {isToggling ? 'Synchronizing...' : `Port 5013: ${portActive ? 'Online' : 'Offline'}`}
+                </RippleButton>
+            </div>
+        </Card>
+    );
+};
+
 const ServiceSection = ({ title, serviceId, description }: { title: string, serviceId: string, description: string }) => {
     const [logs, setLogs] = useState<string>('Loading logs...');
-    const [status, setStatus] = useState<string>('Idle');
     const [isProcessing, setIsProcessing] = useState(false);
     const [progress, setProgress] = useState<{ status: string, message: string } | null>(null);
 
@@ -47,7 +89,7 @@ const ServiceSection = ({ title, serviceId, description }: { title: string, serv
 
     useEffect(() => {
         fetchLogs();
-        const interval = setInterval(fetchLogs, 10000); // Auto-refresh logs every 10s
+        const interval = setInterval(fetchLogs, 10000);
         return () => clearInterval(interval);
     }, []);
 
@@ -69,7 +111,6 @@ const ServiceSection = ({ title, serviceId, description }: { title: string, serv
         };
 
         eventSource.onerror = () => {
-            // This will trigger if the Next.js app restarts itself (nydus-ui)
             setProgress({ status: 'error', message: 'Bridge connection closed (Check if service is restarting).' });
             setIsProcessing(false);
             eventSource.close();
@@ -95,7 +136,6 @@ const ServiceSection = ({ title, serviceId, description }: { title: string, serv
                 </RippleButton>
             </div>
 
-            {/* PROGRESS INDICATOR */}
             {progress && (
                 <Alert className={`mb-4 text-xs font-bold border ${progress.status === 'error' ? 'bg-red-950/30 border-red-900/50 text-red-200' :
                         progress.status === 'success' ? 'bg-green-950/30 border-green-900/50 text-green-200' :
@@ -108,7 +148,6 @@ const ServiceSection = ({ title, serviceId, description }: { title: string, serv
                 </Alert>
             )}
 
-            {/* LOG VIEWER */}
             <div className="relative w-full">
                 <div className="absolute top-0 right-0 bg-secondary px-2 py-1 text-[9px] font-bold text-muted-foreground uppercase z-10">Live Console</div>
                 <pre className="bg-background scrollbar-none text-primary w-full p-4 pt-8 sm:pt-4 text-[11px] font-mono h-48 sm:h-64 overflow-y-auto overflow-x-auto whitespace-pre border border-border shadow-inner">
@@ -126,6 +165,8 @@ export default function MaintenancePage() {
                 <h1 className="text-3xl font-bold text-foreground uppercase tracking-tight">System Maintenance</h1>
                 <p className="text-sm text-muted-foreground mt-2 font-medium">Global service synchronization and log monitoring</p>
             </div>
+
+            <PortControlSection />
 
             <div className="grid gap-8">
                 <ServiceSection
