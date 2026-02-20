@@ -87,3 +87,13 @@
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
+
+@keyframes clickScale {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.85); }
+    100% { transform: scale(1); }
+}
+
+.animate-click-scale {
+    animation: clickScale 0.2s ease-in-out;
+}
