@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 export const runtime = 'nodejs';
 
@@ -15,30 +15,36 @@ const API_BASE = IS_DEV
     ? `http://${VPS_PUBLIC_IP}:${VPS_PUBLIC_PORT}/api`
     : `http://${VPS_INTERNAL_IP}:${VPS_INTERNAL_PORT}/api`;
 
-async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
-    if (IS_DEV) {
-        options.headers = { ...(options.headers || {}), 'Content-Type': 'application/json', 'X-Auth-Key': AUTH_KEY };
-    } else {
-        options.headers = { ...(options.headers || {}), 'Content-Type': 'application/json' };
-    }
-
-    const res = await fetch(`${API_BASE}${endpoint}`, { ...options, cache: 'no-store' });
-    if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Request failed with status ${res.status}`);
-    }
-    return res.json();
-}
-
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ service: string }> }
 ) {
     const { service } = await params;
-    try {
-        const data = await fetchWithAuth(`/maintenance/logs/${service}`);
-        return NextResponse.json(data);
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+
+    const headers: Record<string, string> = {};
+    if (IS_DEV) {
+        headers['X-Auth-Key'] = AUTH_KEY;
     }
+
+    const upstream = await fetch(
+        `${API_BASE}/maintenance/logs/${service}`,
+        {
+            method: 'GET',
+            headers,
+            cache: 'no-store',
+        }
+    );
+
+    if (!upstream.ok || !upstream.body) {
+        return new Response('Upstream error', { status: 500 });
+    }
+
+    return new Response(upstream.body, {
+        status: 200,
+        headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache, no-transform',
+            'Connection': 'keep-alive',
+        },
+    });
 }
