@@ -215,7 +215,7 @@ const ServiceSection = ({
                 </div>
                 <pre
                     ref={logRef}
-                    className="bg-background text-primary w-full p-4 pt-8 text-[11px] font-mono h-64 overflow-y-auto whitespace-pre border border-border shadow-inner"
+                    className="bg-background text-primary w-full h-[480px] p-4 pt-8 text-[11px] font-mono h-64 overflow-y-auto whitespace-pre border border-border shadow-inner"
                 >
                     {logs.join('\n')}
                 </pre>
