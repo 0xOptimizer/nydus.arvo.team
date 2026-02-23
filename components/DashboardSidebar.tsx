@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useSidebar } from '@/context/SidebarContext'
 import { useNavigation } from '@/context/NavigationContext';
+import { ChevronDown, Menu } from 'lucide-react'
 
 function StatBar({ label, value, avg, detail, type, showAvg = false }: { label: string, value: number, avg: number, detail: string, type: string, showAvg?: boolean }) {
   return (
@@ -25,7 +26,7 @@ function StatBar({ label, value, avg, detail, type, showAvg = false }: { label: 
       <div className="relative h-2 flex items-center">
         <Progress value={value} className="h-1 w-full" />
         {showAvg && (
-          <div 
+          <div
             className="absolute w-1.5 h-3 bg-yellow-400/40 border border-yellow-500/50 rounded-sm z-10 transition-all duration-700 ease-in-out cursor-help"
             style={{ left: `${avg}%`, transform: 'translateX(-50%)' }}
             title={`${type} Baseline Average: ${avg.toFixed(2)}%`}
@@ -37,8 +38,8 @@ function StatBar({ label, value, avg, detail, type, showAvg = false }: { label: 
 }
 
 function UsageMiniStats() {
-  const [stats, setStats] = useState({ 
-    cpu: 0, 
+  const [stats, setStats] = useState({
+    cpu: 0,
     ram_p: 0, ram_u: 0, ram_t: 0,
     disk_p: 0, disk_u: 0, disk_t: 0,
     i_p: 0, i_u: 0, i_t: 0,
@@ -76,35 +77,35 @@ function UsageMiniStats() {
 
   return (
     <div className="space-y-3">
-      <StatBar 
-        label="CPU" 
+      <StatBar
+        label="CPU"
         type="CPU"
-        value={stats.cpu} 
-        avg={stats.avgCpu} 
+        value={stats.cpu}
+        avg={stats.avgCpu}
         detail={`avg ${stats.avgCpu.toFixed(2)}%`}
         showAvg={true}
       />
-      <StatBar 
-        label="RAM" 
+      <StatBar
+        label="RAM"
         type="Memory"
-        value={stats.ram_p} 
-        avg={stats.avgRam} 
+        value={stats.ram_p}
+        avg={stats.avgRam}
         detail={`${formatGB(stats.ram_u)}/${formatGB(stats.ram_t)}GB`}
         showAvg={true}
       />
-      <StatBar 
-        label="DSK" 
+      <StatBar
+        label="DSK"
         type="Disk"
-        value={stats.disk_p} 
-        avg={0} 
+        value={stats.disk_p}
+        avg={0}
         detail={`${formatGB(stats.disk_u)}/${formatGB(stats.disk_t)}GB`}
         showAvg={false}
       />
-      <StatBar 
-        label="IND" 
+      <StatBar
+        label="IND"
         type="Inodes"
-        value={stats.i_p} 
-        avg={0} 
+        value={stats.i_p}
+        avg={0}
         detail={`${formatInodes(stats.i_u)}/${formatInodes(stats.i_t)}`}
         showAvg={false}
       />
@@ -113,6 +114,7 @@ function UsageMiniStats() {
 }
 
 export default function DashboardSidebar() {
+  const [isLiveStat, setIsLiveStat] = useState(true)
   const { isOpen } = useSidebar();
   const pathname = usePathname();
   const { activePath, pendingPath, navigate } = useNavigation();
@@ -215,18 +217,38 @@ export default function DashboardSidebar() {
 
         {/* Fixed bottom area with stats card */}
         <div className="flex-none p-4 border-t border-border">
-          <div className="border border-border p-4 space-y-4 rounded-sm">
-            <div className="flex items-center gap-2">
-              <div className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/50 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+          <div className="border border-border rounded-sm">
+            <button
+              onClick={() => setIsLiveStat(!isLiveStat)}
+              className="w-full flex items-center justify-between p-4 transition-colors relative"
+            >
+              <div className="flex items-center gap-2">
+                <div className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/50 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </div>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Live System Resources
+                </span>
               </div>
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Live System Resources
-              </span>
-            </div>
 
-            <UsageMiniStats />
+              {/* Chevron */}
+              <ChevronDown
+                className={`w-4 h-4 text-muted-foreground transition-transform absolute right-3 duration-200 
+                  ${isLiveStat ? "rotate-180" : "rotate-0"
+                }`}
+              />
+            </button>
+
+            <div
+              className={`overflow-hidden transition-all duration-300 ease-in-out 
+                ${isLiveStat ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+              }`}
+            >
+              <div className="p-4 pt-0 space-y-4">
+                <UsageMiniStats />
+              </div>
+            </div>
           </div>
         </div>
       </nav>
