@@ -158,7 +158,7 @@ export default function DNSPage() {
     };
 
     return (
-        <div className="space-y-8 max-w-6xl pb-20">
+        <div className="space-y-8 max-w-7xl pb-20">
             {/* Header */}
             <div className="pb-6 border-b border-border">
                 <h1 className="text-3xl font-bold text-foreground uppercase tracking-tight">Cloudflare DNS Manager</h1>
@@ -236,7 +236,7 @@ export default function DNSPage() {
                     <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
                         Active Records
                     </h3>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 justify-end">
                         <Input
                             type="text"
                             placeholder="Search records..."
@@ -252,7 +252,7 @@ export default function DNSPage() {
                         <div className="p-8 text-center text-muted-foreground text-sm">Loading DNS records...</div>
                     ) : (
                         <Table>
-                            <TableHeader className="bg-secondary border-b border-border md:block hidden">
+                            <TableHeader className="bg-secondary border-b border-border md:table-header-group hidden">
                                 <TableRow className="border-border">
                                     <TableHead className="font-bold text-foreground uppercase text-xs w-24">Type</TableHead>
                                     <TableHead className="font-bold text-foreground uppercase text-xs">Name</TableHead>

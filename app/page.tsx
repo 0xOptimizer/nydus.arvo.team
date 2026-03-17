@@ -315,38 +315,84 @@ function DashboardContent() {
             <CardTitle className="text-white">Top Countries</CardTitle>
           </CardHeader>
           <CardContent>
-            <div ref={countriesChartRef}>
-              <ChartContainer config={chartConfig} className="h-[250px] w-full">
-                <BarChart data={countriesData} layout="vertical" margin={{ left: 0, right: 60 }}>
-                  <YAxis dataKey="label" type="category" hide />
-                  <XAxis type="number" hide />
-                  <Bar barSize={24} dataKey="visitors" fill="var(--secondary)" radius={4}>
-                    <LabelList dataKey="label" position="insideLeft" className="fill-primary font-semibold" fontSize={14} />
-                    <LabelList
-                      dataKey="visitors"
-                      content={({ y, height, value }) => {
-                        const numericY = typeof y === 'string' ? parseFloat(y) : (typeof y === 'number' ? y : 0);
-                        const numericHeight = typeof height === 'string' ? parseFloat(height) : (typeof height === 'number' ? height : 0);
-                        const centerY = numericY + numericHeight / 2;
-                        const rightEdgeX = (countriesChartWidth || 0) - 30;
-                        return (
-                          <text
-                            x={rightEdgeX}
-                            y={centerY}
-                            dominantBaseline="middle"
-                            textAnchor="end"
-                            fill="white"
-                            fontSize={14}
-                            className="fill-zinc-400 font-bold"
-                          >
-                            {value}
-                          </text>
-                        );
-                      }}
-                    />
-                  </Bar>
-                </BarChart>
-              </ChartContainer>
+            {/* 1. The Wrapper: Fixed height with scroll overflow */}
+            <div className="h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+              <div ref={countriesChartRef}>
+                {/* 2. The Chart: Height is dynamic (e.g., 40px per bar) */}
+                <ChartContainer
+                  config={chartConfig}
+                  className="w-full"
+                  style={{ height: `${countriesData.length * 45}px` }}
+                >
+                  <BarChart
+                    data={countriesData}
+                    layout="vertical"
+                    margin={{ left: 0, right: 60, top: 10, bottom: 10 }}
+                  >
+                    <YAxis dataKey="label" type="category" hide />
+                    <XAxis type="number" hide />
+                    <Bar barSize={24} dataKey="visitors" fill="var(--secondary)" radius={4}>
+                      <LabelList
+                        dataKey="label"
+                        content={(props) => {
+                          const { x, y, width, height, value } = props;
+                          // Offset the flag and text slightly from the left edge
+                          const xOffset = (typeof x === 'number' ? x : 0) + 8;
+                          const yOffset = (typeof y === 'number' ? y : 0);
+                          const centerY = yOffset + (typeof height === 'number' ? height : 0) / 2;
+
+                          return (
+                            <g>
+                              {/* The Flag Image */}
+                              <image
+                                href={`https://flagsapi.com/${value}/flat/64.png`}
+                                x={xOffset}
+                                y={centerY - 10} // Center vertically (assuming 20px height)
+                                height="20"
+                                width="20"
+                                preserveAspectRatio="xMidYMid slice"
+                              />
+
+                              <text
+                                x={xOffset + 35}
+                                y={centerY}
+                                dominantBaseline="middle"
+                                fill="currentColor"
+                                className="fill-primary font-bold"
+                                fontSize={12}
+                              >
+                                {value}
+                              </text>
+                            </g>
+                          );
+                        }}
+                      />
+                      <LabelList
+                        dataKey="visitors"
+                        content={({ y, height, value }) => {
+                          const numericY = typeof y === 'string' ? parseFloat(y) : (typeof y === 'number' ? y : 0);
+                          const numericHeight = typeof height === 'string' ? parseFloat(height) : (typeof height === 'number' ? height : 0);
+                          const centerY = numericY + numericHeight / 2;
+                          const rightEdgeX = (countriesChartWidth || 0) - 30;
+                          return (
+                            <text
+                              x={rightEdgeX}
+                              y={centerY}
+                              dominantBaseline="middle"
+                              textAnchor="end"
+                              fill="white"
+                              fontSize={14}
+                              className="fill-zinc-400 font-bold"
+                            >
+                              {value}
+                            </text>
+                          );
+                        }}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -397,39 +443,45 @@ function DashboardContent() {
             <CardTitle className="text-white">Top Browsers</CardTitle>
           </CardHeader>
           <CardContent>
-            <div ref={browsersChartRef}>
-              <ChartContainer config={chartConfig} className="h-[250px] w-full">
-                <BarChart data={browsersData} layout="vertical" margin={{ left: 0, right: 80 }}>
-                  <YAxis dataKey="label" type="category" hide />
-                  <XAxis type="number" hide />
-                  <Bar barSize={24} dataKey="visitors" fill="var(--secondary)" radius={4}>
-                    <LabelList dataKey="label" position="insideLeft" className="fill-primary font-semibold" fontSize={14} />
-                    <LabelList
-                      dataKey="visitors"
-                      content={({ y, height, value }) => {
-                        const numericY = typeof y === 'string' ? parseFloat(y) : (typeof y === 'number' ? y : 0);
-                        const numericHeight = typeof height === 'string' ? parseFloat(height) : (typeof height === 'number' ? height : 0);
-                        const centerY = numericY + numericHeight / 2;
-                        const rightEdgeX = (browsersChartWidth || 0) - 30;
-                        return (
-                          <text
-                            x={rightEdgeX}
-                            y={centerY}
-                            dominantBaseline="middle"
-                            textAnchor="end"
-                            fill="white"
-                            fontSize={14}
-                            className="fill-zinc-400 font-bold"
-                          >
-                            {value}
-                          </text>
-                        );
-                      }}
-                    />
-                  </Bar>
-                </BarChart>
-              </ChartContainer>
+            <div className="h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+              <div ref={browsersChartRef}>
+                <ChartContainer
+                  config={chartConfig}
+                  className="w-full"
+                  style={{ height: `${browsersData.length * 45}px` }}>
+                  <BarChart data={browsersData} layout="vertical" margin={{ left: 0, right: 80 }}>
+                    <YAxis dataKey="label" type="category" hide />
+                    <XAxis type="number" hide />
+                    <Bar barSize={24} dataKey="visitors" fill="var(--secondary)" radius={4}>
+                      <LabelList dataKey="label" position="insideLeft" className="fill-primary font-semibold" fontSize={14} />
+                      <LabelList
+                        dataKey="visitors"
+                        content={({ y, height, value }) => {
+                          const numericY = typeof y === 'string' ? parseFloat(y) : (typeof y === 'number' ? y : 0);
+                          const numericHeight = typeof height === 'string' ? parseFloat(height) : (typeof height === 'number' ? height : 0);
+                          const centerY = numericY + numericHeight / 2;
+                          const rightEdgeX = (browsersChartWidth || 0) - 30;
+                          return (
+                            <text
+                              x={rightEdgeX}
+                              y={centerY}
+                              dominantBaseline="middle"
+                              textAnchor="end"
+                              fill="white"
+                              fontSize={14}
+                              className="fill-zinc-400 font-bold"
+                            >
+                              {value}
+                            </text>
+                          );
+                        }}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              </div>
             </div>
+
           </CardContent>
         </Card>
 
@@ -439,39 +491,44 @@ function DashboardContent() {
             <CardTitle className="text-white">Top Operating Systems</CardTitle>
           </CardHeader>
           <CardContent>
-            <div ref={osChartRef}>
-              <ChartContainer config={chartConfig} className="h-[250px] w-full">
-                <BarChart data={osData} layout="vertical" margin={{ left: 0, right: 80 }} barCategoryGap={4}>
-                  <YAxis dataKey="label" type="category" hide />
-                  <XAxis type="number" hide />
-                  <Bar barSize={32} dataKey="visitors" fill="var(--secondary)" radius={4}>
-                    <LabelList dataKey="label" position="insideLeft" className="fill-primary font-semibold" fontSize={14} />
-                    <LabelList
-                      dataKey="visitors"
-                      content={({ y, height, value }) => {
-                        const numericY = typeof y === 'string' ? parseFloat(y) : (typeof y === 'number' ? y : 0);
-                        const numericHeight = typeof height === 'string' ? parseFloat(height) : (typeof height === 'number' ? height : 0);
-                        const centerY = numericY + numericHeight / 2;
-                        const rightEdgeX = (osChartWidth || 0) - 30;
-                        return (
-                          <text
-                            x={rightEdgeX}
-                            y={centerY}
-                            dominantBaseline="middle"
-                            textAnchor="end"
-                            fill="white"
-                            fontSize={14}
-                            className="fill-zinc-400 font-bold"
-                          >
-                            {value}
-                          </text>
-                        );
-                      }}
-                    />
-                  </Bar>
-                </BarChart>
-              </ChartContainer>
+            <div className="h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+              <div ref={osChartRef} >
+                <ChartContainer config={chartConfig}
+                  className="w-full"
+                  style={{ height: `${osData.length * 45}px` }}>
+                  <BarChart data={osData} layout="vertical" margin={{ left: 0, right: 80 }} barCategoryGap={4}>
+                    <YAxis dataKey="label" type="category" hide />
+                    <XAxis type="number" hide />
+                    <Bar barSize={32} dataKey="visitors" fill="var(--secondary)" radius={4}>
+                      <LabelList dataKey="label" position="insideLeft" className="fill-primary font-semibold" fontSize={14} />
+                      <LabelList
+                        dataKey="visitors"
+                        content={({ y, height, value }) => {
+                          const numericY = typeof y === 'string' ? parseFloat(y) : (typeof y === 'number' ? y : 0);
+                          const numericHeight = typeof height === 'string' ? parseFloat(height) : (typeof height === 'number' ? height : 0);
+                          const centerY = numericY + numericHeight / 2;
+                          const rightEdgeX = (osChartWidth || 0) - 30;
+                          return (
+                            <text
+                              x={rightEdgeX}
+                              y={centerY}
+                              dominantBaseline="middle"
+                              textAnchor="end"
+                              fill="white"
+                              fontSize={14}
+                              className="fill-zinc-400 font-bold"
+                            >
+                              {value}
+                            </text>
+                          );
+                        }}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              </div>
             </div>
+
           </CardContent>
         </Card>
       </div>
