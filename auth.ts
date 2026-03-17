@@ -50,21 +50,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return false
       }
     },
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id
-        token.name = user.name
-        token.picture = user.image
-      }
-      return token
+    async jwt({ token, user, profile }) {
+        if (profile?.id) {
+            token.discordId = profile.id;
+        } else if (user?.id && !token.discordId) {
+            token.discordId = user.id;
+        }
+        if (user) {
+            token.name = user.name;
+            token.picture = user.image;
+        }
+        return token;
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = (token.sub as string) ?? ""
-        session.user.image = (token.picture as string) ?? ""
-        session.user.name = (token.name as string) ?? ""
-      }
-      return session
+        if (session.user) {
+            session.user.id = (token.discordId as string) ?? "";
+            session.user.image = (token.picture as string) ?? "";
+            session.user.name = (token.name as string) ?? "";
+        }
+        return session;
     }
   },
   pages: {
