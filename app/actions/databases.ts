@@ -208,6 +208,30 @@ export async function revokePrivileges(
     }
 }
 
+export async function getPrivilegesForDatabase(databaseUuid: string) {
+    try {
+        return await fetchWithAuth(`/databases/${databaseUuid}/privileges`);
+    } catch (error: any) {
+        return { success: false, error: error.message, result: [] };
+    }
+}
+
+export async function getAllPrivileges() {
+    try {
+        return await fetchWithAuth(`/databases/privileges`);
+    } catch (error: any) {
+        return { success: false, error: error.message, result: [] };
+    }
+}
+
+export async function getUserCredentials(userUuid: string) {
+    try {
+        return await fetchWithAuth(`/databases/users/${userUuid}/credentials`);
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
 export async function performBackup(
     databaseUuid: string,
     databaseType: string,
