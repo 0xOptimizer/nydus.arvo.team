@@ -5,7 +5,7 @@ import {
     getDatabases, createDatabase, deleteDatabase,
     getDatabaseUsers, createDatabaseUser, deleteDatabaseUser,
     grantPrivileges, revokePrivileges, getAllPrivileges,
-    getUserCredentials, performBackup, restoreBackup
+    getPmaToken, performBackup, restoreBackup
 } from '@/app/actions/databases';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -216,28 +216,12 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
 
     const redirectToPma = async (userUuid: string) => {
         setPmaLoading(true);
-        const res = await getUserCredentials(userUuid);
-        if (!res.username || !res.password) { err("Failed to retrieve credentials."); setPmaLoading(false); return; }
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = 'https://pma.arvo.team/index.php';
-        form.target = '_blank';
-        const addField = (name: string, value: string) => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = name;
-            input.value = value;
-            form.appendChild(input);
-        };
-        addField('pma_username', res.username);
-        addField('pma_password', res.password);
-        addField('server', '1');
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
+        const res = await getPmaToken(userUuid);
+        setPmaLoading(false);
+        if (!res.success || !res.token) { err("Failed to generate login token."); return; }
         setPmaDb(null);
         setPmaUsers([]);
-        setPmaLoading(false);
+        window.open(`https://pma.arvo.team/nydus_signon.php?token=${res.token}`, '_blank');
     };
 
     // --- User handlers ---

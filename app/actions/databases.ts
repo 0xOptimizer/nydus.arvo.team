@@ -271,3 +271,15 @@ export async function restoreBackup(
         return { success: false, error: error.message };
     }
 }
+
+export async function getPmaToken(userUuid: string) {
+    try {
+        const data = await fetchWithAuth(`/databases/pma-token`, {
+            method: 'POST',
+            body: JSON.stringify({ user_uuid: userUuid })
+        });
+        return { success: true, token: data.token };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
