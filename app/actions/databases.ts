@@ -283,3 +283,76 @@ export async function getPmaToken(userUuid: string) {
         return { success: false, error: error.message };
     }
 }
+
+export async function quickgenProvision(createdBy: string) {
+    try {
+        const data = await fetchWithAuth(`/databases/quickgen`, {
+            method: 'POST',
+            body: JSON.stringify({
+                database_type: 'mysql',
+                created_by: createdBy
+            })
+        });
+        revalidatePath('/databases');
+        return {
+            success: true,
+            database_uuid: data.database_uuid,
+            database_name: data.database_name,
+            user_uuid: data.user_uuid,
+            username: data.username,
+            password: data.password,
+        };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getAllRecentBackups(limit: number = 50) {
+    try {
+        return await fetchWithAuth(`/databases/backups?limit=${limit}`);
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getBackupsForDatabase(databaseUuid: string, limit: number = 50) {
+    try {
+        return await fetchWithAuth(`/databases/${databaseUuid}/backups?limit=${limit}`);
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getAllSchedules() {
+    try {
+        return await fetchWithAuth(`/databases/schedules`);
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getSchedulesForDatabase(databaseUuid: string) {
+    try {
+        return await fetchWithAuth(`/databases/${databaseUuid}/schedules`);
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function toggleSchedule(scheduleUuid: string) {
+    try {
+        const data = await fetchWithAuth(`/databases/schedules/${scheduleUuid}/toggle`, { method: 'POST' });
+        return { success: true, enabled: data.enabled };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function forceRunSchedule(scheduleUuid: string) {
+    try {
+        await fetchWithAuth(`/databases/schedules/${scheduleUuid}/run`, { method: 'POST' });
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}

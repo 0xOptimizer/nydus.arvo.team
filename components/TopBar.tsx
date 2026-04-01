@@ -6,8 +6,8 @@ import MenuToggle from "./MenuToggle"
 import NydusEasterEgg from "./EasterEgg"
 import NotificationDropdown from "./NotificationDropdown"
 import ProfileDropdown from "./ProfileDropdown"
-
-import nydusLogo from "../public/nydus_logo_v2.png";
+import DynamicNavTabs from "./DynamicNavTabs"
+import nydusLogo from "../public/nydus_logo_v2.png"
 
 export default async function TopBar() {
     const session = await auth()
@@ -35,12 +35,13 @@ export default async function TopBar() {
                         priority
                     />
                     <div className="font-bold text-xl text-foreground tracking-tight uppercase md:flex hidden items-baseline gap-2">
-                        <span
-                            className={`${agaleFont.className} nydus-title inline-block bg-gradient-to-r from-primary to-muted-foreground bg-clip-text text-transparent select-none cursor-pointer transition-transform duration-150 ease-in-out active:scale-90`}
-                        >
+                        <span className={`${agaleFont.className} nydus-title inline-block bg-gradient-to-r from-primary to-muted-foreground bg-clip-text text-transparent select-none cursor-pointer transition-transform duration-150 ease-in-out active:scale-90`}>
                             Nydus
                         </span>
                         <span className="text-muted-foreground text-xs lowercase font-medium">.arvo.team</span>
+                    </div>
+                    <div className="ml-28 flex items-center h-full">
+                        <DynamicNavTabs />
                     </div>
                 </div>
 
@@ -52,18 +53,9 @@ export default async function TopBar() {
                             className="absolute md:left-[-59px] left-[-55px] top-0 h-full w-[60px] z-10"
                             shapeRendering="geometricPrecision"
                         >
-                            <path
-                                d="M 100 0 C 30 0 70 100 0 100 L 100 100 L 100 0 Z"
-                                className="fill-background"
-                            />
-                            <path
-                                d="M 100 0 C 30 0 70 100 0 100"
-                                fill="none"
-                                stroke="#2f2f2f"
-                                strokeWidth="2"
-                            />
+                            <path d="M 100 0 C 30 0 70 100 0 100 L 100 100 L 100 0 Z" className="fill-background" />
+                            <path d="M 100 0 C 30 0 70 100 0 100" fill="none" stroke="#2f2f2f" strokeWidth="2" />
                         </svg>
-
                         <div className="flex items-center md:gap-4 md:ml-4">
                             <Link
                                 href="https://mail.arvo.team"
@@ -72,10 +64,8 @@ export default async function TopBar() {
                             >
                                 <i className="fa-solid fa-envelope text-lg"></i>
                             </Link>
-
                             <NotificationDropdown />
                         </div>
-
                         <div className="flex items-center h-full md:ml-4">
                             <ProfileDropdown
                                 name={user?.name || ''}

@@ -1,8 +1,11 @@
-import { auth } from '@/auth';
-import DatabasesClient from './client';
+import { Suspense } from 'react'
+import DatabasesTab from '@/components/databases/DatabasesTab'
+import DatabasesSkeleton from './loading-skeleton'
 
-export default async function DatabasesPage() {
-    const session = await auth();
-    const actorId = session?.user?.id ?? '';
-    return <DatabasesClient actorId={actorId} />;
+export default function DatabasesPage() {
+    return (
+        <Suspense fallback={<DatabasesSkeleton />}>
+            <DatabasesTab />
+        </Suspense>
+    )
 }
