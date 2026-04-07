@@ -1,15 +1,16 @@
 'use server';
 
+import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
-const ENV = process.env.ENVIRONMENT || 'production';
-const IS_DEV = ENV === 'development';
+const ENV          = process.env.ENVIRONMENT || 'production';
+const IS_DEV       = ENV === 'development';
 
-const VPS_PUBLIC_IP = process.env.ARVO_VPS_IP || '127.0.0.1';
-const VPS_PUBLIC_PORT = process.env.ARVO_VPS_API_PORT || '5013';
-const VPS_INTERNAL_IP = process.env.ARVO_VPS_INTERNAL_IP || '127.0.0.1';
-const VPS_INTERNAL_PORT = process.env.ARVO_VPS_INTERNAL_API_PORT || '4000';
-const AUTH_KEY = process.env.ARVO_NYDUS_API_KEY || '';
+const VPS_PUBLIC_IP       = process.env.ARVO_VPS_IP || '127.0.0.1';
+const VPS_PUBLIC_PORT     = process.env.ARVO_VPS_API_PORT || '5013';
+const VPS_INTERNAL_IP     = process.env.ARVO_VPS_INTERNAL_IP || '127.0.0.1';
+const VPS_INTERNAL_PORT   = process.env.ARVO_VPS_INTERNAL_API_PORT || '4000';
+const AUTH_KEY            = process.env.ARVO_NYDUS_API_KEY || '';
 
 const API_BASE = IS_DEV
     ? `http://${VPS_PUBLIC_IP}:${VPS_PUBLIC_PORT}/api`
@@ -20,12 +21,12 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
         options.headers = {
             ...(options.headers || {}),
             'Content-Type': 'application/json',
-            'X-Auth-Key': AUTH_KEY
+            'X-Auth-Key': AUTH_KEY,
         };
     } else {
         options.headers = {
             ...(options.headers || {}),
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         };
     }
 
@@ -40,47 +41,104 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
 export async function getDeployments() {
     try {
         return await fetchWithAuth('/deployments');
-    } catch (error: any) {
-        console.error('[Next.js Action] getDeployments error:', error.message);
+    } catch (err: any) {
+        console.error('[deployments] getDeployments:', err.message);
         return [];
     }
 }
 
-export async function createDeployment(formData: FormData) {
-    const rawData = {
-        project_name: formData.get('project_name'),
-        tech_stack: formData.get('tech_stack'),
-        github_repository_url: formData.get('github_repository_url'),
-        subdomain: formData.get('subdomain'),
-        branch: formData.get('branch') || 'main',
-        nginx_port: formData.get('nginx_port') || 0
-    };
-
+export async function getDeployment(deploymentUuid: string) {
     try {
-        const data = await fetchWithAuth('/deployments', {
-            method: 'POST',
-            body: JSON.stringify(rawData)
-        });
-
-        revalidatePath('/deployments');
-
-        return { 
-            success: true, 
-            webhook_uuid: data.webhook_uuid,
-            webhook_secret: data.webhook_secret
-        };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+        return await fetchWithAuth(`/deployments/${deploymentUuid}`);
+    } catch (err: any) {
+        console.error('[deployments] getDeployment:', err.message);
+        return null;
     }
 }
 
-export async function deleteDeployment(uuid: string) {
+export async function triggerDeploy(
+    projectUuid: string,
+    subdomain: string,
+    triggeredBy: string,
+) {
+    const cookieStore = await cookies();
+    const pat = cookieStore.get('nydus_pat')?.value || '';
+
     try {
-        await fetchWithAuth(`/deployments/${uuid}`, { method: 'DELETE' });
+        console.log('[triggerDeploy] Calling backend with:', { projectUuid, subdomain, triggeredBy });
+        const data = await fetchWithAuth('/deploy', {
+            method: 'POST',
+            body: JSON.stringify({
+                project_uuid:  projectUuid,
+                subdomain,
+                github_pat: pat,
+                triggered_by:  triggeredBy,
+            }),
+        });
+        console.log('[triggerDeploy] Backend response:', JSON.stringify(data, null, 2));
+        console.log('[triggerDeploy] run_id field:', data.run_id);
+        console.log('[triggerDeploy] All keys in response:', Object.keys(data));
         revalidatePath('/deployments');
+        return { success: true, run_uuid: data.run_id as string };
+    } catch (err: any) {
+        console.error('[triggerDeploy] Error:', err.message, err);
+        return { success: false, error: err.message as string };
+    }
+}
+
+export async function triggerRebuild(deploymentUuid: string, triggeredBy: string) {
+    try {
+        const data = await fetchWithAuth(`/deploy/rebuild/${deploymentUuid}`, {
+            method: 'POST',
+            body: JSON.stringify({ triggered_by: triggeredBy }),
+        });
+        return { success: true, run_uuid: data.run_uuid as string };
+    } catch (err: any) {
+        return { success: false, error: err.message as string };
+    }
+}
+
+export async function getEnvLines(deploymentUuid: string) {
+    try {
+        return await fetchWithAuth(`/deployments/${deploymentUuid}/env`);
+    } catch (err: any) {
+        console.error('[deployments] getEnvLines:', err.message);
+        return [];
+    }
+}
+
+export async function updateEnvLine(deploymentUuid: string, key: string, value: string) {
+    try {
+        await fetchWithAuth(`/deployments/${deploymentUuid}/env`, {
+            method: 'PUT',
+            body: JSON.stringify({ key, value }),
+        });
         return { success: true };
     } catch (err: any) {
-        console.error("[Next.js Action] deleteDeployment failed:", err.message || err);
-        return { success: false, error: err.message || 'Delete failed' };
+        return { success: false, error: err.message as string };
+    }
+}
+
+export async function addEnvLine(deploymentUuid: string, key: string, value: string) {
+    try {
+        await fetchWithAuth(`/deployments/${deploymentUuid}/env`, {
+            method: 'POST',
+            body: JSON.stringify({ key, value }),
+        });
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message as string };
+    }
+}
+
+export async function deleteEnvLine(deploymentUuid: string, key: string) {
+    try {
+        await fetchWithAuth(`/deployments/${deploymentUuid}/env`, {
+            method: 'DELETE',
+            body: JSON.stringify({ key }),
+        });
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message as string };
     }
 }
