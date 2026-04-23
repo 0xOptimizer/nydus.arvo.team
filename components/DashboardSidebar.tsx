@@ -128,6 +128,7 @@ export default function DashboardSidebar() {
     { name: 'Deployments', path: '/deployments', icon: 'fa-rocket' },
     { name: 'Maintenance', path: '/maintenance', icon: 'fa-screwdriver-wrench' },
     { name: 'Databases', path: '/databases', icon: 'fa-database' },
+    { name: 'Upload Files', path: '/upload', icon: 'fa-cloud-arrow-up' },
     { name: 'Cloudflare', path: '/cloudflare', icon: 'fa-brands fa-cloudflare' },
     { name: 'Users', path: '/users', icon: 'fa-users' },
     { name: 'AI Integrations', path: '/ai', icon: 'fa-brands fa-android' },
