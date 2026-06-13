@@ -21,10 +21,8 @@ export default async function TopBar() {
     return (
         <>
             <header className="w-full h-16 bg-card flex items-center justify-between sticky top-0 z-50">
-                <div
-                    className="flex items-center gap-3 h-full pl-6 flex-grow"
-                    style={{ borderBottom: '1px solid #2f2f2f' }}
-                >
+                <div className="flex items-center gap-3 h-full pl-6 flex-grow border-b border-border">
+
                     <MenuToggle />
                     <Image
                         src={nydusLogo}

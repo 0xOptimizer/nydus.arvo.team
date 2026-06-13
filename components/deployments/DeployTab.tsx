@@ -1,11 +1,16 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
 import { useDeploymentContext } from '@/app/deployments/context/DeploymentContext';
+import { useStreamDock } from '@/context/StreamDockContext';
 import {
     triggerDeploy, triggerRebuild,
     getEnvLines, updateEnvLine, addEnvLine, deleteEnvLine,
 } from '@/app/actions/deployments';
+import { StatusBadge } from '@/components/StatusBadge';
+import { DeployInstructions } from '@/components/deployments/DeployInstructions';
+import { formatDateTime } from '@/lib/format';
 import { Input }                  from '@/components/ui/input';
 import { Badge }                  from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -20,7 +25,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 const SUBDOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const ENV_KEY_RE   = /^[A-Z_][A-Z0-9_]*$/;
-const MAX_LOG_LINES = 500;
 
 function validateSubdomain(s: string): string {
     if (!s) return 'Subdomain is required.';
@@ -35,115 +39,9 @@ function validateEnvKey(k: string): string {
     return '';
 }
 
-function StatusBadge({ status }: { status: string }) {
-    const styles: Record<string, string> = {
-        active:  'bg-green-500/10 text-green-500 border-green-500/30',
-        failed:  'bg-red-500/10 text-red-500 border-red-500/30',
-        pending: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30',
-    };
-    return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border ${styles[status] ?? 'bg-muted text-muted-foreground border-border'}`}>
-            {status}
-        </span>
-    );
-}
-
-function LogViewer({ logs, complete }: { logs: string[]; complete: boolean }) {
-    const ref = useRef<HTMLPreElement>(null);
-    useEffect(() => {
-        if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
-    }, [logs]);
-
-    return (
-        <div className="relative w-full">
-            <div className="absolute top-0 right-0 bg-secondary px-2 py-1 text-[9px] font-bold uppercase z-10 flex items-center gap-2">
-                {!complete && (
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                )}
-                {complete ? 'Completed' : 'Live'}
-            </div>
-            <pre
-                ref={ref}
-                className="bg-background/40 text-white w-full h-80 p-4 pt-8 text-xs overflow-y-auto whitespace-pre-wrap break-words border border-border font-mono"
-            >
-                {logs.length === 0 ? 'Waiting for output...' : logs.join('\n')}
-            </pre>
-        </div>
-    );
-}
-
-function useLogStream(runUuid: string | null, onDone?: () => void) {
-    const [logs, setLogs]         = useState<string[]>([]);
-    const [complete, setComplete] = useState(false);
-    const esRef                   = useRef<EventSource | null>(null);
-
-    useEffect(() => {
-        if (!runUuid) return;
-
-        setLogs([]);
-        setComplete(false);
-
-        const es = new EventSource(`/api/deploy/logs/${runUuid}`);
-        esRef.current = es;
-
-        console.log('[useLogStream] Connecting to:', `/api/deploy/logs/${runUuid}`);
-
-        es.onopen = () => {
-            console.log('[useLogStream] EventSource connected');
-            setLogs(prev => [...prev, '[INFO] Connected to log stream...']);
-        };
-
-        es.onmessage = (event) => {
-            console.log('[useLogStream] Message received:', event.data.substring(0, 100));
-            if (event.data === '[done]') {
-                console.log('[useLogStream] Deploy completed');
-                es.close();
-                esRef.current = null;
-                setComplete(true);
-                onDone?.();
-                return;
-            }
-            if (event.data === '[keepalive]') return;
-            try {
-                const parsed = JSON.parse(event.data);
-                if (parsed.line) {
-                    setLogs(prev => {
-                        const next = [...prev, parsed.line as string];
-                        return next.length > MAX_LOG_LINES
-                            ? next.slice(next.length - MAX_LOG_LINES)
-                            : next;
-                    });
-                }
-            } catch (parseErr) {
-                console.warn('[useLogStream] Parse error:', parseErr, 'Data:', event.data);
-            }
-        };
-
-        es.onerror = (err) => {
-            console.error('[useLogStream] EventSource error:', err);
-            es.close();
-            esRef.current = null;
-            setLogs(prev => [...prev, '[ERROR] Connection to log stream lost. Check browser console for details.']);
-            setComplete(true);
-        };
-
-        return () => {
-            console.log('[useLogStream] Cleaning up EventSource');
-            es.close();
-            esRef.current = null;
-        };
-    }, [runUuid]);
-
-    const close = useCallback(() => {
-        esRef.current?.close();
-        esRef.current = null;
-    }, []);
-
-    return { logs, complete, close };
-}
-
 export default function DeployTab() {
     const { deployments, projects, actorId, loading, refresh } = useDeploymentContext();
+    const { startRun } = useStreamDock();
 
     const [formCollapsed, setFormCollapsed] = useState(true);
     const [error, setError]                 = useState<string | null>(null);
@@ -153,40 +51,23 @@ export default function DeployTab() {
     const flash = (msg: string) => { setSuccess(msg); setTimeout(() => setSuccess(null), 4000); };
     const err   = (msg: string) => { setError(msg);   setTimeout(() => setError(null),   6000); };
 
-    const formatDate = (iso: string | null) => {
-        if (!iso) return '—';
-        return new Date(iso).toLocaleDateString('en-US', {
-            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-        });
-    };
-
     // --- Deploy dialog ---
     const [deployProject, setDeployProject] = useState<any | null>(null);
     const [subdomain, setSubdomain]         = useState('');
     const [subdomainErr, setSubdomainErr]   = useState('');
     const [deploying, setDeploying]         = useState(false);
-    const [deployRunUuid, setDeployRunUuid] = useState<string | null>(null);
     const [deployError, setDeployError]     = useState<string | null>(null);
-
-    const {
-        logs:     deployLogs,
-        complete: deployComplete,
-        close:    closeDeployStream,
-    } = useLogStream(deployRunUuid, () => refresh());
 
     const openDeployDialog = (project: any) => {
         setDeployProject(project);
         setSubdomain('');
         setSubdomainErr('');
-        setDeployRunUuid(null);
         setDeploying(false);
         setDeployError(null);
     };
 
     const closeDeployDialog = () => {
-        closeDeployStream();
         setDeployProject(null);
-        setDeployRunUuid(null);
         setDeploying(false);
         setDeployError(null);
     };
@@ -195,15 +76,11 @@ export default function DeployTab() {
         const e = validateSubdomain(subdomain);
         if (e) { setSubdomainErr(e); return; }
 
-        console.log('[DeployTab] Starting deploy for:', subdomain);
         setDeploying(true);
         setDeployError(null);
         const res = await triggerDeploy(deployProject.project_uuid, subdomain, actorId);
 
-        console.log('[DeployTab] Deploy response:', res);
-
         if (!res.success) {
-            console.error('[DeployTab] Deploy failed:', res.error);
             setDeploying(false);
             const errorMsg = res.error || 'Deploy failed.';
             setDeployError(errorMsg);
@@ -211,45 +88,49 @@ export default function DeployTab() {
             return;
         }
 
-        console.log('[DeployTab] Setting deployRunUuid to:', res.run_uuid);
-        setDeployRunUuid(res.run_uuid ?? null);
+        // Hand the live log stream to the global dock toast.
+        const sub = subdomain;
+        if (res.run_uuid) {
+            startRun({
+                runId: res.run_uuid,
+                kind: 'deploy',
+                label: `Deploying ${sub}.arvo.team`,
+                onDone: () => refresh(),
+            });
+        }
+        closeDeployDialog();
+        flash(`Deployment started for ${sub}.arvo.team`);
     };
 
     // --- Rebuild dialog ---
-    const [rebuildTarget, setRebuildTarget]   = useState<any | null>(null);
-    const [rebuildRunUuid, setRebuildRunUuid] = useState<string | null>(null);
+    const [rebuildTarget, setRebuildTarget] = useState<any | null>(null);
 
-    const {
-        logs:     rebuildLogs,
-        complete: rebuildComplete,
-        close:    closeRebuildStream,
-    } = useLogStream(rebuildRunUuid);
-
-    const openRebuildDialog = (deployment: any) => {
-        setRebuildTarget(deployment);
-        setRebuildRunUuid(null);
-    };
-
-    const closeRebuildDialog = () => {
-        closeRebuildStream();
-        setRebuildTarget(null);
-        setRebuildRunUuid(null);
-    };
+    const openRebuildDialog = (deployment: any) => setRebuildTarget(deployment);
+    const closeRebuildDialog = () => setRebuildTarget(null);
 
     const handleRebuild = async () => {
         if (!rebuildTarget) return;
-        setBusyKey(`rebuild-${rebuildTarget.deployment_uuid}`);
+        const target = rebuildTarget;
+        setBusyKey(`rebuild-${target.deployment_uuid}`);
 
-        const res = await triggerRebuild(rebuildTarget.deployment_uuid, actorId);
+        const res = await triggerRebuild(target.deployment_uuid, actorId);
         setBusyKey(null);
+        setRebuildTarget(null);
 
         if (!res.success) {
             err(res.error || 'Rebuild failed.');
-            setRebuildTarget(null);
             return;
         }
 
-        setRebuildRunUuid(res.run_uuid ?? null);
+        if (res.run_uuid) {
+            startRun({
+                runId: res.run_uuid,
+                kind: 'rebuild',
+                label: `Rebuilding ${target.subdomain}.arvo.team`,
+                onDone: () => refresh(),
+            });
+        }
+        flash(`Rebuild started for ${target.subdomain}.arvo.team`);
     };
 
     // --- Env dialog ---
@@ -353,6 +234,8 @@ export default function DeployTab() {
 
                 {/* Left column */}
                 <div className="flex-1 space-y-4">
+
+                    <DeployInstructions />
 
                     {/* Deploy new project card */}
                     <div className="border border-border rounded-sm bg-card">
@@ -468,10 +351,26 @@ export default function DeployTab() {
                                                 <StatusBadge status={d.status} />
                                             </TableCell>
                                             <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
-                                                {formatDate(d.deployed_at)}
+                                                {formatDateTime(d.deployed_at)}
                                             </TableCell>
                                             <TableCell className="text-right pr-4 py-2.5">
                                                 <div className="flex justify-end gap-1">
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Link href={`/deployments/${d.deployment_uuid}`}>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="h-7 w-7 p-0"
+                                                                >
+                                                                    <i className="fa-solid fa-sliders" />
+                                                                </Button>
+                                                            </Link>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="top">
+                                                            Manage deployment
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
                                                             <span>
@@ -540,10 +439,11 @@ export default function DeployTab() {
                         <Separator />
                         <div className="p-4 space-y-3">
                             {[
-                                { label: 'Total',   value: deployments.length,                                    color: '' },
-                                { label: 'Active',  value: deployments.filter(d => d.status === 'active').length,  color: 'text-green-500' },
-                                { label: 'Failed',  value: deployments.filter(d => d.status === 'failed').length,  color: 'text-red-500' },
-                                { label: 'Pending', value: deployments.filter(d => d.status === 'pending').length, color: 'text-yellow-500' },
+                                { label: 'Total',     value: deployments.length,                                       color: '' },
+                                { label: 'Active',    value: deployments.filter(d => d.status === 'active').length,    color: 'text-green-500' },
+                                { label: 'Unhealthy', value: deployments.filter(d => d.status === 'unhealthy').length, color: 'text-amber-500' },
+                                { label: 'Failed',    value: deployments.filter(d => d.status === 'failed').length,    color: 'text-red-500' },
+                                { label: 'Pending',   value: deployments.filter(d => d.status === 'pending').length,   color: 'text-yellow-500' },
                             ].map(({ label, value, color }) => (
                                 <div key={label} className="flex items-center justify-between">
                                     <span className="text-xs text-muted-foreground">{label}</span>
@@ -557,154 +457,99 @@ export default function DeployTab() {
                 </div>
             </div>
 
-            {/* Deploy dialog */}
+            {/* Deploy dialog (form only — logs stream in the bottom dock) */}
             <Dialog
                 open={!!deployProject}
                 onOpenChange={open => { if (!open) closeDeployDialog(); }}
             >
                 <DialogContent className="sm:max-w-lg shadow-none">
                     <DialogHeader>
-                        <DialogTitle>
-                            {deployRunUuid
-                                ? `Deploying — ${deployProject?.name}`
-                                : `Deploy ${deployProject?.name}`
-                            }
-                        </DialogTitle>
-                        {!deployRunUuid && (
-                            <DialogDescription>
-                                Assign a subdomain. Your project will be available at{' '}
-                                <span className="font-mono">yoursubdomain.arvo.team</span>.
-                            </DialogDescription>
-                        )}
+                        <DialogTitle>Deploy {deployProject?.name}</DialogTitle>
+                        <DialogDescription>
+                            Assign a subdomain. Your project will be available at{' '}
+                            <span className="font-mono">yoursubdomain.arvo.team</span>.
+                        </DialogDescription>
                     </DialogHeader>
 
-                    {!deployRunUuid ? (
-                        <div className="space-y-4 py-2">
-                            {deployError && (
-                                <Alert variant="destructive">
-                                    <AlertDescription>{deployError}</AlertDescription>
-                                </Alert>
-                            )}
-                            <div>
-                                <label className="block text-xs text-muted-foreground mb-1.5">
-                                    Subdomain{' '}
-                                    <span className="text-muted-foreground">(max 24 chars, lowercase)</span>
-                                </label>
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        value={subdomain}
-                                        onChange={e => {
-                                            setSubdomain(e.target.value.toLowerCase().trim());
-                                            setSubdomainErr('');
-                                        }}
-                                        placeholder="my-project"
-                                        className="font-mono"
-                                        disabled={deploying}
-                                    />
-                                    <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                                        .arvo.team
-                                    </span>
-                                </div>
-                                {subdomainErr && (
-                                    <p className="text-xs text-destructive mt-1">{subdomainErr}</p>
-                                )}
+                    <div className="space-y-4 py-2">
+                        {deployError && (
+                            <Alert variant="destructive">
+                                <AlertDescription>{deployError}</AlertDescription>
+                            </Alert>
+                        )}
+                        <div>
+                            <label className="block text-xs text-muted-foreground mb-1.5">
+                                Subdomain{' '}
+                                <span className="text-muted-foreground">(max 24 chars, lowercase)</span>
+                            </label>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    value={subdomain}
+                                    onChange={e => {
+                                        setSubdomain(e.target.value.toLowerCase().trim());
+                                        setSubdomainErr('');
+                                    }}
+                                    placeholder="my-project"
+                                    className="font-mono"
+                                    disabled={deploying}
+                                />
+                                <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                                    .arvo.team
+                                </span>
                             </div>
-                        </div>
-                    ) : (
-                        <div className="py-2 space-y-2">
-                            <LogViewer logs={deployLogs} complete={deployComplete} />
-                            {deployComplete && (
-                                <p className="text-xs text-muted-foreground text-center">
-                                    Deployment finished. You may close this window.
-                                </p>
+                            {subdomainErr && (
+                                <p className="text-xs text-destructive mt-1">{subdomainErr}</p>
                             )}
                         </div>
-                    )}
+                    </div>
 
                     <DialogFooter>
-                        {!deployRunUuid ? (
-                            <>
-                                <Button
-                                    variant="outline"
-                                    onClick={closeDeployDialog}
-                                    disabled={deploying}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={handleDeploy}
-                                    disabled={deploying || !subdomain}
-                                >
-                                    {deploying
-                                        ? <><i className="fa-solid fa-spinner fa-spin mr-2" />Starting...</>
-                                        : 'Start Deployment'
-                                    }
-                                </Button>
-                            </>
-                        ) : (
-                            <Button variant="outline" onClick={closeDeployDialog}>
-                                {deployComplete ? 'Close' : 'Close (running in background)'}
-                            </Button>
-                        )}
+                        <Button variant="outline" onClick={closeDeployDialog} disabled={deploying}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleDeploy} disabled={deploying || !subdomain}>
+                            {deploying
+                                ? <><i className="fa-solid fa-spinner fa-spin mr-2" />Starting...</>
+                                : 'Start Deployment'
+                            }
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* Rebuild dialog */}
+            {/* Rebuild dialog (confirm only — logs stream in the bottom dock) */}
             <Dialog
                 open={!!rebuildTarget}
                 onOpenChange={open => { if (!open) closeRebuildDialog(); }}
             >
                 <DialogContent className="sm:max-w-lg shadow-none">
                     <DialogHeader>
-                        <DialogTitle>
-                            Rebuild — {rebuildTarget?.subdomain}
-                        </DialogTitle>
-                        {!rebuildRunUuid && (
-                            <DialogDescription>
-                                Re-runs install and build steps for{' '}
-                                <span className="font-mono">{rebuildTarget?.subdomain}.arvo.team</span>.
-                                This does not affect your nginx or SSL configuration.
-                            </DialogDescription>
-                        )}
+                        <DialogTitle>Rebuild — {rebuildTarget?.subdomain}</DialogTitle>
+                        <DialogDescription>
+                            Re-runs install and build steps for{' '}
+                            <span className="font-mono">{rebuildTarget?.subdomain}.arvo.team</span>.
+                            This does not affect your nginx or SSL configuration.
+                        </DialogDescription>
                     </DialogHeader>
 
-                    {rebuildRunUuid ? (
-                        <div className="py-2 space-y-2">
-                            <LogViewer logs={rebuildLogs} complete={rebuildComplete} />
-                            {rebuildComplete && (
-                                <p className="text-xs text-muted-foreground text-center">
-                                    Rebuild finished. You may close this window.
-                                </p>
-                            )}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-muted-foreground py-2">
-                            The rebuild will re-install dependencies and run the build command for this deployment.
-                        </p>
-                    )}
+                    <p className="text-sm text-muted-foreground py-2">
+                        The rebuild will re-install dependencies and run the build command for this deployment.
+                        Progress will stream in the status dock at the bottom of the screen.
+                    </p>
 
                     <DialogFooter>
-                        {!rebuildRunUuid ? (
-                            <>
-                                <Button variant="outline" onClick={closeRebuildDialog}>
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={handleRebuild}
-                                    disabled={busyKey === `rebuild-${rebuildTarget?.deployment_uuid}`}
-                                >
-                                    {busyKey === `rebuild-${rebuildTarget?.deployment_uuid}`
-                                        ? <><i className="fa-solid fa-spinner fa-spin mr-2" />Queuing...</>
-                                        : 'Rebuild'
-                                    }
-                                </Button>
-                            </>
-                        ) : (
-                            <Button variant="outline" onClick={closeRebuildDialog}>
-                                {rebuildComplete ? 'Close' : 'Close (running in background)'}
-                            </Button>
-                        )}
+                        <Button variant="outline" onClick={closeRebuildDialog}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleRebuild}
+                            disabled={busyKey === `rebuild-${rebuildTarget?.deployment_uuid}`}
+                        >
+                            {busyKey === `rebuild-${rebuildTarget?.deployment_uuid}`
+                                ? <><i className="fa-solid fa-spinner fa-spin mr-2" />Queuing...</>
+                                : 'Rebuild'
+                            }
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

@@ -5,7 +5,9 @@ import TopBar from "@/components/TopBar";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import { SidebarProvider } from "@/context/SidebarContext";
 import { NavigationProvider } from "@/context/NavigationContext";
+import { StreamDockProvider } from "@/context/StreamDockContext";
 import MainContent from "@/components/MainContent";
+import StreamDock from "@/components/StreamDock";
 import { agaleFont } from "@/lib/fonts";
 
 export const metadata: Metadata = {
@@ -35,18 +37,21 @@ export default async function RootLayout({
         ) : (
           <NavigationProvider>
             <SidebarProvider>
-              <div className="flex flex-col h-screen overflow-hidden bg-background">
-                <div className="flex-none">
-                  <TopBar />
-                </div>
+              <StreamDockProvider>
+                <div className="flex flex-col h-screen overflow-hidden bg-background">
+                  <div className="flex-none">
+                    <TopBar />
+                  </div>
 
-                <div className="flex flex-1 overflow-hidden relative">
-                  <DashboardSidebar />
-                  <MainContent>
-                    {children}
-                  </MainContent>
+                  <div className="flex flex-1 overflow-hidden relative">
+                    <DashboardSidebar />
+                    <MainContent>
+                      {children}
+                    </MainContent>
+                  </div>
                 </div>
-              </div>
+                <StreamDock />
+              </StreamDockProvider>
             </SidebarProvider>
           </NavigationProvider>
         )}

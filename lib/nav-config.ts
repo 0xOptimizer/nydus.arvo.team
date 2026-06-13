@@ -20,4 +20,11 @@ export const NAV_CONFIG: NavSection[] = [
             { label: 'Schedules', href: '/databases/schedules', icon: 'fa-clock-rotate-left' },
         ],
     },
+    {
+        prefix: '/cloudflare',
+        tabs: [
+            { label: 'DNS Records', href: '/cloudflare', icon: 'fa-globe' },
+            { label: 'Analytics', href: '/cloudflare/analytics', icon: 'fa-chart-area' },
+        ],
+    },
 ]

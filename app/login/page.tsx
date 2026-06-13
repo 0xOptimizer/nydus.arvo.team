@@ -10,7 +10,7 @@ export default async function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background dark flex items-center justify-center p-4">
-      <Card className="w-full max-w-md border-border shadow-lg overflow-hidden">
+      <Card className="w-full max-w-md border-border shadow-lg overflow-hidden animate-in fade-in-0 slide-in-from-bottom-2 duration-500">
         <div className="bg-card border-b border-border p-4 flex justify-between items-center">
           <div className="font-bold text-foreground tracking-tight uppercase flex items-baseline gap-1">
             Nydus <span className="text-muted-foreground text-xs">.arvo.team</span>
@@ -40,9 +40,9 @@ export default async function LoginPage() {
             }}
             className="w-full"
           >
-            <Button 
-              type="submit" 
-              className="cursor-pointer w-full bg-secondary text-primary-foreground font-semibold uppercase text-sm py-5 hover:bg-primary/90"
+            <Button
+              type="submit"
+              className="cursor-pointer w-full bg-secondary text-primary-foreground font-semibold uppercase text-sm py-5 transition-all hover:bg-primary/90 hover:shadow-[0_0_20px_-4px_var(--primary)]"
             >
               <span>Authenticate via Discord</span>
             </Button>

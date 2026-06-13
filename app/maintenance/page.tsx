@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
+import { PageShell } from '@/components/PageShell';
+import { SelfTestPanel } from '@/components/maintenance/SelfTestPanel';
+import { ServicesSection } from '@/components/maintenance/ServicesSection';
 
 const RippleButton = ({ children, onClick, className, disabled }: any) => {
     const createRipple = (event: any) => {
@@ -226,40 +228,30 @@ const ServiceSection = ({
 
 export default function MaintenancePage() {
     return (
-        <div className="space-y-8 pb-20">
-            <div className="pb-6 border-b border-border">
-                <h1 className="text-3xl font-bold uppercase tracking-tight">
-                    System Maintenance
-                </h1>
-                <p className="text-sm text-muted-foreground mt-2 font-medium">
-                    Global service synchronization and log monitoring
-                </p>
-            </div>
+        <PageShell
+            title="System Maintenance"
+            description="Self-test, managed services, and global service control."
+            className="pb-20"
+        >
+            <SelfTestPanel />
 
             <PortControlSection />
 
-            <div className="grid gap-8">
+            <ServicesSection />
+
+            <div className="space-y-4">
+                <div>
+                    <h3 className="text-lg font-bold uppercase tracking-tight">Pull Updates</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Git-pull and restart for the main site, with a live console.
+                    </p>
+                </div>
                 <ServiceSection
                     title="arvo.team"
                     serviceId="arvo-team"
                     description="Main website instance"
                 />
-                {/* <ServiceSection 
-                    title="nydus.arvo.team" 
-                    serviceId="nydus-ui" 
-                    description="Internal management UI (Next.js 16 / PM2)"
-                />
-                <ServiceSection 
-                    title="Nydus Tunnel" 
-                    serviceId="nydus" 
-                    description="Backend Pycord Automation Service (Systemd)"
-                />
-                <ServiceSection 
-                    title="Nginx Gateway" 
-                    serviceId="nginx" 
-                    description="Global Reverse Proxy and SSL Termination"
-                /> */}
             </div>
-        </div>
+        </PageShell>
     );
 }

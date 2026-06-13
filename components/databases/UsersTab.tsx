@@ -26,6 +26,8 @@ export default function UsersTab() {
     const [newUsername, setNewUsername]   = useState('')
     const [newPassword, setNewPassword]   = useState('')
     const [userDbType, setUserDbType]     = useState('mysql')
+    const [hostMode, setHostMode]         = useState<'remote' | 'localhost' | 'custom'>('remote')
+    const [customHosts, setCustomHosts]   = useState('')
     const [creatingUser, setCreatingUser] = useState(false)
     const [busyKey, setBusyKey]           = useState<string | null>(null)
     const [error, setError]               = useState<string | null>(null)
@@ -46,16 +48,26 @@ export default function UsersTab() {
         setNewUsername(`${name}_${actorId}`)
     }
 
+    // Map the host selector to the backend `allowed_hosts` value.
+    // remote → "%", localhost → "localhost", custom → CSV (defaults to "%" if blank).
+    const resolveAllowedHosts = () => {
+        if (hostMode === 'localhost') return 'localhost'
+        if (hostMode === 'custom')    return customHosts.trim() || '%'
+        return '%'
+    }
+
     const handleCreateUser = async () => {
         if (!newUsername.trim() || !newPassword.trim()) { err('Username and password are required.'); return }
         if (dbUsers.some((u: any) => u.username === newUsername.trim())) {
             err(`Username "${newUsername.trim()}" already exists.`); return
         }
         setCreatingUser(true)
-        const res = await createDatabaseUser(userDbType, newUsername.trim(), newPassword, actorId)
+        const res = await createDatabaseUser(userDbType, newUsername.trim(), newPassword, actorId, resolveAllowedHosts())
         if (res.success) {
             setNewUsername('')
             setNewPassword('')
+            setCustomHosts('')
+            setHostMode('remote')
             await refresh()
             flash(`User created — ${res.user_uuid}`)
         } else err(res.error || 'Failed to create user.')
@@ -101,7 +113,7 @@ export default function UsersTab() {
                             {DB_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
                         </select>
                     </div>
-                    <div className="md:col-span-4">
+                    <div className="md:col-span-3">
                         <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">
                             Username
                             {newUsername.length > 0 && dbUsers.some((u: any) => u.username === newUsername) &&
@@ -127,7 +139,7 @@ export default function UsersTab() {
                             </Tooltip>
                         </div>
                     </div>
-                    <div className="md:col-span-4">
+                    <div className="md:col-span-3">
                         <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Password</label>
                         <Input
                             type="password"
@@ -136,6 +148,18 @@ export default function UsersTab() {
                             placeholder="Strong password"
                             className="bg-background border-border font-mono text-sm focus:border-primary"
                         />
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Access</label>
+                        <select
+                            value={hostMode}
+                            onChange={e => setHostMode(e.target.value as 'remote' | 'localhost' | 'custom')}
+                            className="w-full bg-secondary border border-border text-foreground text-sm p-2 focus:border-primary outline-none transition-all"
+                        >
+                            <option value="remote">Anywhere (%)</option>
+                            <option value="localhost">Localhost</option>
+                            <option value="custom">Custom…</option>
+                        </select>
                     </div>
                     <div className="md:col-span-2">
                         <RippleButton
@@ -147,6 +171,19 @@ export default function UsersTab() {
                         </RippleButton>
                     </div>
                 </div>
+                {hostMode === 'custom' && (
+                    <div className="mt-4">
+                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">
+                            Allowed hosts <span className="normal-case italic text-muted-foreground">(comma-separated, e.g. 10.0.0.5, 192.168.1.%)</span>
+                        </label>
+                        <Input
+                            value={customHosts}
+                            onChange={e => setCustomHosts(e.target.value)}
+                            placeholder="%"
+                            className="bg-background border-border font-mono text-sm focus:border-primary"
+                        />
+                    </div>
+                )}
                 <p className="text-xs text-muted-foreground mt-4 border-l-2 border-border pl-3">
                     After creating a user, head to the <strong className="text-foreground">Assignments</strong> page to attach them to a database.
                 </p>

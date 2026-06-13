@@ -5,7 +5,5 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatDate(dateString: string) {
-  const date = new Date(dateString)
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-}
+// Re-exported from lib/format.ts so existing imports keep working.
+export { formatDate } from "./format"

@@ -12,6 +12,7 @@ import {
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import { PageShell } from '@/components/PageShell'
 
 const MAX_FILES = 10
 const PREVIEW_TEXT_LIMIT = 1500
@@ -243,7 +244,7 @@ export default function UploadPage() {
 
     return (
         <TooltipProvider>
-            <div className="space-y-4 p-6">
+            <PageShell title="Upload" description="Upload files to the server or phpMyAdmin import directory.">
 
                 {error && (
                     <Alert variant="destructive">
@@ -668,7 +669,7 @@ export default function UploadPage() {
                         )}
                     </div>
                 </div>
-            </div>
+            </PageShell>
         </TooltipProvider>
     )
 }

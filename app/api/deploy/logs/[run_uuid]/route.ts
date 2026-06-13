@@ -1,19 +1,7 @@
 import { NextRequest } from 'next/server';
+import { API_BASE, upstreamSseHeaders } from '@/lib/api';
 
 export const runtime = 'nodejs';
-
-const ENV        = process.env.ENVIRONMENT || 'production';
-const IS_DEV     = ENV === 'development';
-
-const VPS_PUBLIC_IP     = process.env.ARVO_VPS_IP || '127.0.0.1';
-const VPS_PUBLIC_PORT   = process.env.ARVO_VPS_API_PORT || '5013';
-const VPS_INTERNAL_IP   = process.env.ARVO_VPS_INTERNAL_IP || '127.0.0.1';
-const VPS_INTERNAL_PORT = process.env.ARVO_VPS_INTERNAL_API_PORT || '4000';
-const AUTH_KEY          = process.env.ARVO_NYDUS_API_KEY || '';
-
-const API_BASE = IS_DEV
-    ? `http://${VPS_PUBLIC_IP}:${VPS_PUBLIC_PORT}/api`
-    : `http://${VPS_INTERNAL_IP}:${VPS_INTERNAL_PORT}/api`;
 
 export async function GET(
     _request: NextRequest,
@@ -21,11 +9,10 @@ export async function GET(
 ) {
     const { run_uuid } = await params;
     const logUrl = `${API_BASE}/deploy/logs/${run_uuid}`;
-    
+
     console.log('[deploy/logs] GET:', logUrl);
 
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (IS_DEV) headers['X-Auth-Key'] = AUTH_KEY;
+    const headers = upstreamSseHeaders();
 
     const responseStream = new TransformStream();
     const writer         = responseStream.writable.getWriter();

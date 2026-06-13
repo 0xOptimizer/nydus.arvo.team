@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { PageShell } from '@/components/PageShell';
 
 const EditableInput = ({ label, name, initialValue, type = "text", placeholder, note }: any) => {
     const [value, setValue] = useState(initialValue || '');
@@ -82,20 +83,15 @@ function SettingsContent() {
   if (!settings) return null;
 
   return (
-    <div>
-      <div className="flex items-center justify-between border-b border-border pb-6 mb-8">
-        <div>
-            <h1 className="text-3xl font-bold text-foreground uppercase tracking-tight">System Settings</h1>
-            <p className="text-sm text-muted-foreground mt-2 font-medium">Configure external service integrations</p>
-        </div>
-        
-        {showBackBtn && (
-            <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90 uppercase tracking-wider">
-              <Link href="/projects">Back to Projects</Link>
-            </Button>
-        )}
-      </div>
-
+    <PageShell
+      title="System Settings"
+      description="Configure external service integrations."
+      actions={showBackBtn && (
+        <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90 uppercase tracking-wider">
+          <Link href="/projects">Back to Projects</Link>
+        </Button>
+      )}
+    >
       <div className="space-y-8 max-w-3xl mx-auto">
         
         <Card className="border-border bg-card p-8">
@@ -142,7 +138,7 @@ function SettingsContent() {
             </div>
         </Card>
       </div>
-    </div>
+    </PageShell>
   );
 }
 

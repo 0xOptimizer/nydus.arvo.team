@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
 import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PageShell } from '@/components/PageShell';
 
 // --- UI Components ---
 
@@ -158,13 +159,11 @@ export default function DNSPage() {
     };
 
     return (
-        <div className="space-y-8 max-w-7xl pb-20">
-            {/* Header */}
-            <div className="pb-6 border-b border-border">
-                <h1 className="text-3xl font-bold text-foreground uppercase tracking-tight">Cloudflare DNS Manager</h1>
-                <p className="text-sm text-muted-foreground mt-2 font-medium">Manage subdomains and bind them to internal deployments</p>
-            </div>
-
+        <PageShell
+            title="Cloudflare"
+            description="Manage subdomains and bind them to internal deployments."
+            className="max-w-7xl pb-20"
+        >
             {/* Create Section */}
             <Card className="p-6 border-border bg-card">
                 <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">
@@ -322,6 +321,6 @@ export default function DNSPage() {
                     </RippleButton>
                 </div>
             </div>
-        </div>
+        </PageShell>
     );
 }

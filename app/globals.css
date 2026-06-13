@@ -88,6 +88,25 @@
   scrollbar-width: none; /* Firefox */
 }
 
+/* Thin themed scrollbar for opt-in scroll containers. */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+.custom-scrollbar {
+  scrollbar-width: thin;
+}
+
 @keyframes clickScale {
     0% { transform: scale(1); }
     50% { transform: scale(0.85); }

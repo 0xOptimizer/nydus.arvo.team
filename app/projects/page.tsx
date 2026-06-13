@@ -13,6 +13,7 @@ import { Alert } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { PageShell } from '@/components/PageShell';
 
 const RippleButton = ({ children, onClick, className, disabled, type = 'button' }: any) => {
   const createRipple = (event: MouseEvent<HTMLButtonElement>) => {
@@ -107,22 +108,18 @@ export default function ProjectsPage() {
   ).sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="space-y-8">
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground uppercase tracking-tight">Projects</h1>
-          <p className="text-sm text-muted-foreground mt-2 font-medium">Manage repositories and synchronization</p>
-        </div>
-        <div className="relative flex items-center">
-          <Input
-            placeholder="Search repositories..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="bg-card border-border text-foreground min-w-64"
-          />
-        </div>
-      </div>
+    <PageShell
+      title="Projects"
+      description="Manage repositories and synchronization."
+      actions={
+        <Input
+          placeholder="Search repositories..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="bg-card border-border text-foreground min-w-64"
+        />
+      }
+    >
 
       {!patKey && (
         <Alert className="bg-amber-950/30 border-amber-700/50 text-amber-200 p-4">
@@ -217,6 +214,6 @@ export default function ProjectsPage() {
           )}
         </Card>
       </div>
-    </div>
+    </PageShell>
   );
 }

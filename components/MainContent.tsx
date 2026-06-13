@@ -1,11 +1,13 @@
 'use client';
 
+import { MotionConfig } from 'motion/react';
 import { useNavigation } from '@/context/NavigationContext';
 
 export default function MainContent({ children }: { children: React.ReactNode }) {
   const { isPending } = useNavigation();
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="z-1 flex-1 overflow-y-auto p-8 w-full overflow-x-hidden">
       <div className={`transition-opacity duration-200 ${isPending ? 'opacity-20' : 'opacity-100'}`}>
         {children}
@@ -19,5 +21,6 @@ export default function MainContent({ children }: { children: React.ReactNode })
         </div>
       )}
     </div>
+    </MotionConfig>
   );
 }
