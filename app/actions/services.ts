@@ -52,6 +52,24 @@ export async function createService(payload: ServicePayload) {
     }
 }
 
+/**
+ * Patch a managed service (migration § B). Any subset of ServicePayload fields
+ * plus `enabled`. Use to backfill deploy_path + port so recovery works.
+ * (Re-POSTing the same name fails — name is UNIQUE — so editing must use PUT.)
+ */
+export async function updateService(serviceUuid: string, patch: Partial<ServicePayload> & { enabled?: boolean | number }) {
+    try {
+        const data = await fetchWithAuth(`/services/${serviceUuid}`, {
+            method: 'PUT',
+            body: JSON.stringify(patch),
+        });
+        revalidatePath('/maintenance');
+        return { success: true, service: data };
+    } catch (err: any) {
+        return { success: false, error: err.message as string };
+    }
+}
+
 export async function deleteService(serviceUuid: string) {
     try {
         await fetchWithAuth(`/services/${serviceUuid}`, { method: 'DELETE' });
@@ -59,6 +77,35 @@ export async function deleteService(serviceUuid: string) {
         return { success: true };
     } catch (err: any) {
         return { success: false, error: err.message as string };
+    }
+}
+
+/**
+ * One-click recovery (migration § B). Recreates any lost active node deployment
+ * + enabled pm2 managed service on its stored port/path; leaves healthy alone.
+ *   { status: 'ok'|'partial', recovered, failed, report: [{target,pm2_name,ok,detail}] }
+ */
+export async function recoverServer() {
+    try {
+        const data = await fetchWithAuth('/server/recover', { method: 'POST' });
+        return { success: true, ...data };
+    } catch (err: any) {
+        return { success: false, error: err.message as string };
+    }
+}
+
+/**
+ * Service diagnostics (migration § C). Shape varies by service_type:
+ *   pm2     → { service_type, process: {…} }
+ *   systemd → { service_type, unit, status, journal }
+ *   nginx/static → { service_type, nginx_error_log }
+ */
+export async function getServiceDiagnostics(serviceUuid: string): Promise<any | null> {
+    try {
+        return await fetchWithAuth(`/services/${serviceUuid}/diagnostics`);
+    } catch (err: any) {
+        console.error('[services] getServiceDiagnostics:', err.message);
+        return null;
     }
 }
 

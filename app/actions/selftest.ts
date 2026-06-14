@@ -1,6 +1,21 @@
 'use server';
 
-import { API_BASE, apiHeaders } from '@/lib/api';
+import { API_BASE, apiHeaders, fetchWithAuth } from '@/lib/api';
+
+/**
+ * Poll the self-test state for button enablement (migration § C). Single-flight
+ * across all admins (Discord + dashboard).
+ *   { running: false, active: null }
+ *   { running: true, active: { run_id, started_by, started_at, age_seconds, log_stream } }
+ */
+export async function getSelftestStatus(): Promise<{ running: boolean; active: any | null }> {
+    try {
+        const data = await fetchWithAuth('/selftest');
+        return { running: !!data?.running, active: data?.active ?? null };
+    } catch {
+        return { running: false, active: null };
+    }
+}
 
 /**
  * Trigger the deployment self-test. See FRONTEND_HANDOFF.md § Self-test.
@@ -26,7 +41,8 @@ export async function startSelfTest(variants: string = 'all') {
         const data = await res.json().catch(() => ({}));
 
         if (res.status === 409) {
-            return { success: false, conflict: true, error: data.error || 'A self-test is already running.' };
+            // The 409 now identifies the live run so the UI can offer "Watch".
+            return { success: false, conflict: true, error: data.error || 'A self-test is already running.', active: data.active ?? null };
         }
         if (res.status === 503) {
             return { success: false, unavailable: true, error: data.error || 'Self-test module unavailable.' };

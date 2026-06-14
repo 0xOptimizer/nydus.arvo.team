@@ -1,23 +1,38 @@
 'use client';
 
 import { useState } from 'react';
-import { serviceProcessAction, deleteService } from '@/app/actions/services';
+import { serviceProcessAction, deleteService, getServiceDiagnostics } from '@/app/actions/services';
 import { useEventStream } from '@/hooks/useEventStream';
 import { LogViewer } from '@/components/LogViewer';
+import { ServiceDialog } from '@/components/maintenance/ServiceDialog';
+import { ServiceDiagnostics } from '@/components/DiagnosticsView';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
-export function ServiceCard({ service, onDeleted }: { service: any; onDeleted: () => void }) {
+export function ServiceCard({ service, onChanged }: { service: any; onChanged: () => void }) {
     const [busyKey, setBusyKey] = useState<string | null>(null);
     const [result, setResult]   = useState<{ ok: boolean; msg: string } | null>(null);
     const [showLogs, setShowLogs] = useState(false);
+    const [diag, setDiag]       = useState<any | null>(null);
+    const [showDiag, setShowDiag] = useState(false);
+    const [diagLoading, setDiagLoading] = useState(false);
 
     const enabled = service.enabled === 1 || service.enabled === true;
     const logUrl = showLogs ? `/api/stream/services/${service.service_uuid}/logs?lines=100` : null;
     const { lines, complete } = useEventStream(logUrl, { format: 'raw', maxLines: 300 });
+
+    const toggleDiag = async () => {
+        const next = !showDiag;
+        setShowDiag(next);
+        if (next && !diag) {
+            setDiagLoading(true);
+            setDiag(await getServiceDiagnostics(service.service_uuid));
+            setDiagLoading(false);
+        }
+    };
 
     const run = async (key: string, action: string, confirmMsg?: string) => {
         if (confirmMsg && !confirm(confirmMsg)) return;
@@ -34,7 +49,7 @@ export function ServiceCard({ service, onDeleted }: { service: any; onDeleted: (
         setBusyKey('delete');
         const res = await deleteService(service.service_uuid);
         setBusyKey(null);
-        if (res.success) onDeleted();
+        if (res.success) onChanged();
         else setResult({ ok: false, msg: res.error || 'Delete failed.' });
     };
 
@@ -71,10 +86,34 @@ export function ServiceCard({ service, onDeleted }: { service: any; onDeleted: (
                     <i className={cn('fa-solid mr-1.5 text-xs', showLogs ? 'fa-eye-slash' : 'fa-terminal')} />
                     Logs
                 </Button>
+                <Button variant="outline" size="sm" onClick={toggleDiag}>
+                    <i className="fa-solid fa-stethoscope mr-1.5 text-xs" />
+                    Diagnose
+                </Button>
+                <ServiceDialog
+                    mode="edit"
+                    service={service}
+                    onSaved={onChanged}
+                    trigger={
+                        <Button variant="outline" size="sm">
+                            <i className="fa-solid fa-pen text-xs" />
+                        </Button>
+                    }
+                />
                 <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" disabled={busyKey === 'delete'} onClick={handleDelete}>
                     {busyKey === 'delete' ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-trash" />}
                 </Button>
             </div>
+
+            {showDiag && (
+                <div className="mt-3 rounded-sm border border-border bg-background/40 p-3">
+                    {diagLoading ? (
+                        <p className="text-xs text-muted-foreground"><i className="fa-solid fa-spinner fa-spin mr-2" />Loading diagnostics…</p>
+                    ) : (
+                        <ServiceDiagnostics diag={diag} />
+                    )}
+                </div>
+            )}
 
             {showLogs && (
                 <div className="mt-3">

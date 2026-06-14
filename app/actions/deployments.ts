@@ -22,32 +22,41 @@ export async function getDeployment(deploymentUuid: string) {
     }
 }
 
-export async function triggerDeploy(
-    projectUuid: string,
-    subdomain: string,
-    triggeredBy: string,
-) {
+export interface DeployParams {
+    triggeredBy: string;
+    dnsMode?: 'subdomain' | 'cloudflare' | 'external';
+    subdomain?: string;   // required for dns_mode 'subdomain'
+    domain?: string;      // required for dns_mode 'cloudflare' | 'external'
+}
+
+export async function triggerDeploy(projectUuid: string, params: DeployParams) {
     const cookieStore = await cookies();
     const pat = cookieStore.get('nydus_pat')?.value || '';
 
+    const dnsMode = params.dnsMode ?? 'subdomain';
+
+    // Body shape is mode-aware (see FRONTEND_HANDOFF_2026-06-14.md § A).
+    const body: Record<string, any> = {
+        project_uuid: projectUuid,
+        github_pat: pat,
+        triggered_by: params.triggeredBy,
+    };
+    if (dnsMode === 'subdomain') {
+        body.subdomain = params.subdomain;
+    } else {
+        body.dns_mode = dnsMode;
+        body.domain = params.domain;
+    }
+
     try {
-        console.log('[triggerDeploy] Calling backend with:', { projectUuid, subdomain, triggeredBy });
         const data = await fetchWithAuth('/deploy', {
             method: 'POST',
-            body: JSON.stringify({
-                project_uuid:  projectUuid,
-                subdomain,
-                github_pat: pat,
-                triggered_by:  triggeredBy,
-            }),
+            body: JSON.stringify(body),
         });
-        console.log('[triggerDeploy] Backend response:', JSON.stringify(data, null, 2));
-        console.log('[triggerDeploy] run_id field:', data.run_id);
-        console.log('[triggerDeploy] All keys in response:', Object.keys(data));
         revalidatePath('/deployments');
         return { success: true, run_uuid: data.run_id as string };
     } catch (err: any) {
-        console.error('[triggerDeploy] Error:', err.message, err);
+        console.error('[triggerDeploy] Error:', err.message);
         return { success: false, error: err.message as string };
     }
 }

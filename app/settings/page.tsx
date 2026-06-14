@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { PageShell } from '@/components/PageShell';
+import { WatchdogCard } from '@/components/settings/WatchdogCard';
 
 const EditableInput = ({ label, name, initialValue, type = "text", placeholder, note }: any) => {
     const [value, setValue] = useState(initialValue || '');
@@ -127,7 +128,7 @@ function SettingsContent() {
                     />
                 </div>
                 <div className="col-span-2">
-                    <EditableInput 
+                    <EditableInput
                         label="Zone ID"
                         name="cf_zone"
                         initialValue={settings.cfZone}
@@ -137,6 +138,8 @@ function SettingsContent() {
                 </div>
             </div>
         </Card>
+
+        <WatchdogCard />
       </div>
     </PageShell>
   );

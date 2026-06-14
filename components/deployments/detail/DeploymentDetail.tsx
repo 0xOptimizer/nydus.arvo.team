@@ -15,8 +15,10 @@ import { EnvEditor } from '@/components/deployments/EnvEditor';
 import { LogsTab } from '@/components/deployments/detail/LogsTab';
 import { WebhookTab } from '@/components/deployments/detail/WebhookTab';
 import { ActionsTab } from '@/components/deployments/detail/ActionsTab';
+import { DiagnosticsTab } from '@/components/deployments/detail/DiagnosticsTab';
 import { pm2ChipState, httpChipState, sslChipState, dnsChipState } from '@/lib/health';
 import { formatBytes, formatUptime } from '@/lib/format';
+import { deploymentFqdn, deploymentName, dnsModeLabel } from '@/lib/deployments';
 
 const STATUS_POLL_MS = 10_000;
 
@@ -43,7 +45,10 @@ export function DeploymentDetail({ deployment }: { deployment: any }) {
     }, [refresh]);
 
     const liveStatus = status?.status ?? deployment.status;
+    const isUnhealthy = liveStatus === 'unhealthy' || liveStatus === 'failed';
     const stack = status?.stack ?? deployment.tech_stack;
+    const dnsMode = status?.dns_mode ?? deployment.dns_mode ?? 'subdomain';
+    const fqdn = deploymentFqdn({ fqdn: status?.fqdn ?? deployment.fqdn, subdomain: deployment.subdomain });
 
     const handleRebuild = async () => {
         setRebuilding(true);
@@ -53,7 +58,7 @@ export function DeploymentDetail({ deployment }: { deployment: any }) {
             startRun({
                 runId: res.run_uuid,
                 kind: 'rebuild',
-                label: `Rebuilding ${deployment.subdomain}.arvo.team`,
+                label: `Rebuilding ${fqdn}`,
                 onDone: () => refresh(),
             });
         }
@@ -62,6 +67,9 @@ export function DeploymentDetail({ deployment }: { deployment: any }) {
     const meta = (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <StatusBadge status={liveStatus} />
+            {dnsMode !== 'subdomain' && (
+                <Badge variant="outline" className="font-normal text-[10px] uppercase">{dnsModeLabel(dnsMode)}</Badge>
+            )}
             <StatusChip label="pm2"  state={pm2ChipState(status?.pm2)} />
             <StatusChip label="http" state={httpChipState(status?.http)} />
             <StatusChip label="ssl"  state={sslChipState(status?.ssl)} />
@@ -71,7 +79,7 @@ export function DeploymentDetail({ deployment }: { deployment: any }) {
 
     const actions = (
         <>
-            <a href={`https://${deployment.subdomain}.arvo.team`} target="_blank" rel="noopener noreferrer">
+            <a href={`https://${fqdn}`} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" size="sm">
                     Open site <i className="fa-solid fa-arrow-up-right-from-square ml-1.5 text-xs" />
                 </Button>
@@ -84,8 +92,8 @@ export function DeploymentDetail({ deployment }: { deployment: any }) {
 
     return (
         <PageShell
-            title={deployment.subdomain}
-            description={`${deployment.subdomain}.arvo.team`}
+            title={deploymentName(deployment)}
+            description={fqdn}
             backHref="/deployments"
             meta={meta}
             actions={actions}
@@ -106,12 +114,16 @@ export function DeploymentDetail({ deployment }: { deployment: any }) {
                 )}
             </div>
 
-            <Tabs defaultValue="logs" className="w-full">
+            <Tabs defaultValue={isUnhealthy ? 'diagnose' : 'logs'} className="w-full">
                 <TabsList className="bg-card border border-border">
                     <TabsTrigger value="logs">Logs</TabsTrigger>
                     <TabsTrigger value="env">Env</TabsTrigger>
                     <TabsTrigger value="webhook">Webhook</TabsTrigger>
                     <TabsTrigger value="actions">Actions</TabsTrigger>
+                    <TabsTrigger value="diagnose">
+                        Diagnose
+                        {isUnhealthy && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />}
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="logs" className="rounded-sm border border-border bg-card p-4">
@@ -124,7 +136,10 @@ export function DeploymentDetail({ deployment }: { deployment: any }) {
                     <WebhookTab deploymentUuid={uuid} />
                 </TabsContent>
                 <TabsContent value="actions">
-                    <ActionsTab deploymentUuid={uuid} stack={stack} />
+                    <ActionsTab deploymentUuid={uuid} stack={stack} dnsMode={dnsMode} />
+                </TabsContent>
+                <TabsContent value="diagnose" className="rounded-sm border border-border bg-card p-4">
+                    <DiagnosticsTab deploymentUuid={uuid} />
                 </TabsContent>
             </Tabs>
         </PageShell>

@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { getServices } from '@/app/actions/services';
 import { ServiceCard } from '@/components/maintenance/ServiceCard';
-import { AddServiceDialog } from '@/components/maintenance/AddServiceDialog';
+import { AddServiceDialog } from '@/components/maintenance/ServiceDialog';
+import { RecoverAllButton } from '@/components/maintenance/RecoverAllButton';
 import { EmptyState } from '@/components/EmptyState';
 import { staggerContainer, staggerItem } from '@/lib/motion';
 
@@ -29,7 +30,10 @@ export function ServicesSection() {
                         Sites and processes Nydus operates but didn’t deploy.
                     </p>
                 </div>
-                <AddServiceDialog onCreated={refresh} />
+                <div className="flex items-center gap-2">
+                    <RecoverAllButton />
+                    <AddServiceDialog onCreated={refresh} />
+                </div>
             </div>
 
             {loading ? (
@@ -49,7 +53,7 @@ export function ServicesSection() {
                 >
                     {services.map(svc => (
                         <motion.div key={svc.service_uuid} variants={staggerItem}>
-                            <ServiceCard service={svc} onDeleted={refresh} />
+                            <ServiceCard service={svc} onChanged={refresh} />
                         </motion.div>
                     ))}
                 </motion.div>

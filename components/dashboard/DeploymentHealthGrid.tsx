@@ -7,6 +7,7 @@ import { StatusChip } from '@/components/StatusChip';
 import { EmptyState } from '@/components/EmptyState';
 import { staggerContainer, staggerItem } from '@/lib/motion';
 import { pm2ChipState, httpChipState, sslChipState, dnsChipState } from '@/lib/health';
+import { deploymentFqdn } from '@/lib/deployments';
 
 export function DeploymentHealthGrid({ deployments }: { deployments: any[] }) {
     const counts = {
@@ -50,7 +51,7 @@ export function DeploymentHealthGrid({ deployments }: { deployments: any[] }) {
                                 className="block rounded-sm border border-border bg-background/40 p-3 transition-colors hover:border-primary/40 hover:bg-secondary/30"
                             >
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className="truncate font-mono text-sm">{d.subdomain}.arvo.team</span>
+                                    <span className="truncate font-mono text-sm">{deploymentFqdn(d)}</span>
                                     <StatusBadge status={d.status} />
                                 </div>
                                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">

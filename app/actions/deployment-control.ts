@@ -34,6 +34,23 @@ export async function getDeploymentConfig(uuid: string): Promise<any | null> {
     }
 }
 
+/**
+ * Crash/health diagnostics — works whether the app is up, stopped, errored, or
+ * lost (pm2 logs are empty for a dead process). See migration § C.
+ *   { fqdn, stack, status, assigned_port, port_listening,
+ *     process: { pm2_name, known, status, restarts, unstable_restarts, exit_code,
+ *                uptime, error_log, output_log, error_log_path } | null,
+ *     nginx_error_log }
+ */
+export async function getDeploymentDiagnostics(uuid: string): Promise<any | null> {
+    try {
+        return await fetchWithAuth(`/deployments/${uuid}/diagnostics`);
+    } catch (err: any) {
+        console.error('[control] getDeploymentDiagnostics:', err.message);
+        return null;
+    }
+}
+
 /** Node-only. action: start|stop|restart|reload|flush (default restart). */
 export async function processAction(uuid: string, action: string = 'restart') {
     try {

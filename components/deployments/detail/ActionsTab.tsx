@@ -48,8 +48,9 @@ function ActionGroup({
     );
 }
 
-export function ActionsTab({ deploymentUuid, stack }: { deploymentUuid: string; stack?: string }) {
+export function ActionsTab({ deploymentUuid, stack, dnsMode }: { deploymentUuid: string; stack?: string; dnsMode?: string }) {
     const isNode = stack === 'node';
+    const isExternal = dnsMode === 'external';
     const [busyKey, setBusyKey] = useState<string | null>(null);
     const [result, setResult]   = useState<{ ok: boolean; msg: string } | null>(null);
     const [config, setConfig]   = useState<any | null>(null);
@@ -119,13 +120,22 @@ export function ActionsTab({ deploymentUuid, stack }: { deploymentUuid: string; 
                     onRun={run}
                     actions={[{ key: 'ssl', label: 'Renew certificate', fn: () => renewSsl(deploymentUuid) }]}
                 />
-                <ActionGroup
-                    title="DNS"
-                    description="Force the Cloudflare A record back to the correct IP + proxied."
-                    busyKey={busyKey}
-                    onRun={run}
-                    actions={[{ key: 'dns', label: 'Reconcile DNS', fn: () => reconcileDns(deploymentUuid) }]}
-                />
+                {isExternal ? (
+                    <div className="rounded-sm border border-border bg-card p-4">
+                        <h4 className="text-sm font-medium">DNS</h4>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                            DNS is client-managed for external domains — nydus doesn’t reconcile it.
+                        </p>
+                    </div>
+                ) : (
+                    <ActionGroup
+                        title="DNS"
+                        description="Force the Cloudflare A record back to the correct IP + proxied."
+                        busyKey={busyKey}
+                        onRun={run}
+                        actions={[{ key: 'dns', label: 'Reconcile DNS', fn: () => reconcileDns(deploymentUuid) }]}
+                    />
+                )}
             </div>
 
             {config && (config.nginx_config || config.package_scripts) && (

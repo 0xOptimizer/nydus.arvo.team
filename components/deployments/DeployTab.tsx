@@ -11,6 +11,7 @@ import {
 import { StatusBadge } from '@/components/StatusBadge';
 import { DeployInstructions } from '@/components/deployments/DeployInstructions';
 import { formatDateTime } from '@/lib/format';
+import { deploymentFqdn, dnsModeLabel } from '@/lib/deployments';
 import { Input }                  from '@/components/ui/input';
 import { Badge }                  from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -25,6 +26,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 const SUBDOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const ENV_KEY_RE   = /^[A-Z_][A-Z0-9_]*$/;
+const DOMAIN_RE    = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i;
 
 function validateSubdomain(s: string): string {
     if (!s) return 'Subdomain is required.';
@@ -32,6 +34,21 @@ function validateSubdomain(s: string): string {
     if (!SUBDOMAIN_RE.test(s)) return 'Lowercase letters, numbers, and hyphens only. Cannot start or end with a hyphen.';
     return '';
 }
+
+function validateDomain(d: string): string {
+    if (!d) return 'Domain is required.';
+    if (!DOMAIN_RE.test(d)) return 'Enter a valid hostname, e.g. shop.client.com.';
+    if (/\.?arvo\.team$/i.test(d)) return 'Domains under arvo.team must use subdomain mode.';
+    return '';
+}
+
+type DnsMode = 'subdomain' | 'cloudflare' | 'external';
+
+const DNS_MODE_OPTIONS: { value: DnsMode; label: string; hint: string }[] = [
+    { value: 'subdomain',  label: 'Subdomain',  hint: 'Hosted at <name>.arvo.team. DNS + SSL fully automated.' },
+    { value: 'cloudflare', label: 'Cloudflare', hint: 'Custom domain in your Cloudflare zone (same account). Automated.' },
+    { value: 'external',   label: 'External',   hint: 'Custom domain whose DNS you run elsewhere. Point an A record at the server first.' },
+];
 
 function validateEnvKey(k: string): string {
     if (!k) return 'Key is required.';
@@ -53,15 +70,19 @@ export default function DeployTab() {
 
     // --- Deploy dialog ---
     const [deployProject, setDeployProject] = useState<any | null>(null);
+    const [dnsMode, setDnsMode]             = useState<DnsMode>('subdomain');
     const [subdomain, setSubdomain]         = useState('');
-    const [subdomainErr, setSubdomainErr]   = useState('');
+    const [domain, setDomain]               = useState('');
+    const [targetErr, setTargetErr]         = useState('');
     const [deploying, setDeploying]         = useState(false);
     const [deployError, setDeployError]     = useState<string | null>(null);
 
     const openDeployDialog = (project: any) => {
         setDeployProject(project);
+        setDnsMode('subdomain');
         setSubdomain('');
-        setSubdomainErr('');
+        setDomain('');
+        setTargetErr('');
         setDeploying(false);
         setDeployError(null);
     };
@@ -73,12 +94,18 @@ export default function DeployTab() {
     };
 
     const handleDeploy = async () => {
-        const e = validateSubdomain(subdomain);
-        if (e) { setSubdomainErr(e); return; }
+        const isSubdomain = dnsMode === 'subdomain';
+        const e = isSubdomain ? validateSubdomain(subdomain) : validateDomain(domain);
+        if (e) { setTargetErr(e); return; }
 
         setDeploying(true);
         setDeployError(null);
-        const res = await triggerDeploy(deployProject.project_uuid, subdomain, actorId);
+        const res = await triggerDeploy(deployProject.project_uuid, {
+            triggeredBy: actorId,
+            dnsMode,
+            subdomain: isSubdomain ? subdomain : undefined,
+            domain: isSubdomain ? undefined : domain,
+        });
 
         if (!res.success) {
             setDeploying(false);
@@ -89,17 +116,17 @@ export default function DeployTab() {
         }
 
         // Hand the live log stream to the global dock toast.
-        const sub = subdomain;
+        const target = isSubdomain ? `${subdomain}.arvo.team` : domain;
         if (res.run_uuid) {
             startRun({
                 runId: res.run_uuid,
                 kind: 'deploy',
-                label: `Deploying ${sub}.arvo.team`,
+                label: `Deploying ${target}`,
                 onDone: () => refresh(),
             });
         }
         closeDeployDialog();
-        flash(`Deployment started for ${sub}.arvo.team`);
+        flash(`Deployment started for ${target}`);
     };
 
     // --- Rebuild dialog ---
@@ -126,11 +153,11 @@ export default function DeployTab() {
             startRun({
                 runId: res.run_uuid,
                 kind: 'rebuild',
-                label: `Rebuilding ${target.subdomain}.arvo.team`,
+                label: `Rebuilding ${deploymentFqdn(target)}`,
                 onDone: () => refresh(),
             });
         }
-        flash(`Rebuild started for ${target.subdomain}.arvo.team`);
+        flash(`Rebuild started for ${deploymentFqdn(target)}`);
     };
 
     // --- Env dialog ---
@@ -330,19 +357,26 @@ export default function DeployTab() {
                                         <TableRow key={d.deployment_uuid}>
                                             <TableCell className="py-2.5">
                                                 <a
-                                                    href={`https://${d.subdomain}.arvo.team`}
+                                                    href={`https://${deploymentFqdn(d)}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="font-mono text-sm hover:underline inline-flex items-center gap-1.5"
                                                 >
-                                                    {d.subdomain}.arvo.team
+                                                    {deploymentFqdn(d)}
                                                     <i className="fa-solid fa-arrow-up-right-from-square text-xs text-muted-foreground" />
                                                 </a>
                                             </TableCell>
                                             <TableCell className="py-2.5">
-                                                <Badge variant="secondary" className="font-normal text-xs uppercase">
-                                                    {d.tech_stack}
-                                                </Badge>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Badge variant="secondary" className="font-normal text-xs uppercase">
+                                                        {d.tech_stack}
+                                                    </Badge>
+                                                    {d.dns_mode && d.dns_mode !== 'subdomain' && (
+                                                        <Badge variant="outline" className="font-normal text-[10px] uppercase">
+                                                            {dnsModeLabel(d.dns_mode)}
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell className="font-mono text-xs text-muted-foreground py-2.5">
                                                 {d.assigned_port ?? '—'}
@@ -466,8 +500,7 @@ export default function DeployTab() {
                     <DialogHeader>
                         <DialogTitle>Deploy {deployProject?.name}</DialogTitle>
                         <DialogDescription>
-                            Assign a subdomain. Your project will be available at{' '}
-                            <span className="font-mono">yoursubdomain.arvo.team</span>.
+                            Choose how this deployment is addressed, then provide its hostname.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -477,37 +510,84 @@ export default function DeployTab() {
                                 <AlertDescription>{deployError}</AlertDescription>
                             </Alert>
                         )}
+
+                        {/* DNS mode selector */}
                         <div>
-                            <label className="block text-xs text-muted-foreground mb-1.5">
-                                Subdomain{' '}
-                                <span className="text-muted-foreground">(max 24 chars, lowercase)</span>
-                            </label>
-                            <div className="flex items-center gap-2">
+                            <label className="block text-xs text-muted-foreground mb-1.5">Domain mode</label>
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {DNS_MODE_OPTIONS.map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => { setDnsMode(opt.value); setTargetErr(''); }}
+                                        disabled={deploying}
+                                        className={`rounded-sm border px-2 py-1.5 text-xs font-medium transition-colors ${
+                                            dnsMode === opt.value
+                                                ? 'border-primary bg-primary/10 text-primary'
+                                                : 'border-border text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="mt-1.5 text-[11px] text-muted-foreground">
+                                {DNS_MODE_OPTIONS.find(o => o.value === dnsMode)?.hint}
+                            </p>
+                        </div>
+
+                        {dnsMode === 'subdomain' ? (
+                            <div>
+                                <label className="block text-xs text-muted-foreground mb-1.5">
+                                    Subdomain{' '}
+                                    <span className="text-muted-foreground">(max 24 chars, lowercase)</span>
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        value={subdomain}
+                                        onChange={e => { setSubdomain(e.target.value.toLowerCase().trim()); setTargetErr(''); }}
+                                        placeholder="my-project"
+                                        className="font-mono"
+                                        disabled={deploying}
+                                    />
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">.arvo.team</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <label className="block text-xs text-muted-foreground mb-1.5">Custom domain</label>
                                 <Input
-                                    value={subdomain}
-                                    onChange={e => {
-                                        setSubdomain(e.target.value.toLowerCase().trim());
-                                        setSubdomainErr('');
-                                    }}
-                                    placeholder="my-project"
+                                    value={domain}
+                                    onChange={e => { setDomain(e.target.value.toLowerCase().trim()); setTargetErr(''); }}
+                                    placeholder="shop.client.com"
                                     className="font-mono"
                                     disabled={deploying}
                                 />
-                                <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                                    .arvo.team
-                                </span>
                             </div>
-                            {subdomainErr && (
-                                <p className="text-xs text-destructive mt-1">{subdomainErr}</p>
-                            )}
-                        </div>
+                        )}
+                        {targetErr && <p className="text-xs text-destructive mt-1">{targetErr}</p>}
+
+                        {dnsMode === 'external' && (
+                            <Alert>
+                                <AlertDescription className="text-xs">
+                                    <i className="fa-solid fa-circle-info mr-1.5" />
+                                    Point an <span className="font-mono">A</span> record for{' '}
+                                    <span className="font-mono">{domain || 'your domain'}</span> at the server IP{' '}
+                                    <strong>before</strong> deploying. The run fails fast (no cert) until DNS resolves —
+                                    just redeploy once it does.
+                                </AlertDescription>
+                            </Alert>
+                        )}
                     </div>
 
                     <DialogFooter>
                         <Button variant="outline" onClick={closeDeployDialog} disabled={deploying}>
                             Cancel
                         </Button>
-                        <Button onClick={handleDeploy} disabled={deploying || !subdomain}>
+                        <Button
+                            onClick={handleDeploy}
+                            disabled={deploying || (dnsMode === 'subdomain' ? !subdomain : !domain)}
+                        >
                             {deploying
                                 ? <><i className="fa-solid fa-spinner fa-spin mr-2" />Starting...</>
                                 : 'Start Deployment'

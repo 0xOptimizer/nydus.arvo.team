@@ -24,6 +24,8 @@ export function sslChipState(ssl: any): ChipState {
 
 export function dnsChipState(dns: any): ChipState {
     if (!dns) return 'unknown';
+    // External (client-managed) DNS — nydus doesn't manage it, so absence isn't a failure.
+    if (dns.managed === false) return 'unknown';
     if (!dns.present) return 'fail';
     if (dns.drift) return 'warn';
     return 'ok';
