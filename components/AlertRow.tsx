@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { staggerItem } from '@/lib/motion';
+import { listItem } from '@/lib/motion';
 import { alertLevelStyle } from '@/lib/alerts';
 import { formatRelativeTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -35,7 +35,9 @@ export function AlertRow({
 
     return (
         <motion.button
-            variants={staggerItem}
+            layout
+            variants={listItem}
+            exit="exit"
             onClick={() => onAck?.(alert.alert_uuid)}
             className={cn(
                 'flex w-full items-start gap-2.5 border-l-2 px-3 py-2.5 text-left transition-colors hover:bg-secondary/40',

@@ -40,3 +40,24 @@ export const dockSlide: Variants = {
     show: { opacity: 1, y: 0, transition: { duration: 0.22, ease: easeOut } },
     exit: { opacity: 0, y: 24, transition: { duration: 0.16 } },
 };
+
+/**
+ * List row that can also leave — pair with <AnimatePresence> so rows animate out
+ * on removal (acked alerts, deleted records). Small/subtle by design.
+ */
+export const listItem: Variants = {
+    hidden: { opacity: 0, y: 6 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.2, ease: easeOut } },
+    exit: { opacity: 0, x: -8, transition: { duration: 0.16 } },
+};
+
+/**
+ * Tiny cross-fade for content that swaps in place — button label↔spinner, a
+ * status badge changing state. Use with <AnimatePresence mode="wait"> keyed on
+ * the value that changes.
+ */
+export const swapFade: Variants = {
+    hidden: { opacity: 0, y: 2 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.12, ease: easeOut } },
+    exit: { opacity: 0, y: -2, transition: { duration: 0.1 } },
+};

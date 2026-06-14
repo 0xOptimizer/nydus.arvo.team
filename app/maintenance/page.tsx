@@ -1,52 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Card } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { PageShell } from '@/components/PageShell';
 import { SelfTestPanel } from '@/components/maintenance/SelfTestPanel';
 import { ServicesSection } from '@/components/maintenance/ServicesSection';
-
-const RippleButton = ({ children, onClick, className, disabled }: any) => {
-    const createRipple = (event: any) => {
-        const button = event.currentTarget;
-        const circle = document.createElement('span');
-        const diameter = Math.max(button.clientWidth, button.clientHeight);
-        const radius = diameter / 2;
-        const rect = button.getBoundingClientRect();
-        circle.style.width = circle.style.height = `${diameter}px`;
-        circle.style.left = `${event.clientX - rect.left - radius}px`;
-        circle.style.top = `${event.clientY - rect.top - radius}px`;
-        circle.classList.add('ripple');
-        const existing = button.getElementsByClassName('ripple')[0];
-        if (existing) existing.remove();
-        button.appendChild(circle);
-        if (onClick) onClick(event);
-    };
-
-    return (
-        <button
-            disabled={disabled}
-            onClick={createRipple}
-            className={`relative overflow-hidden transition-all duration-200 ${className}`}
-        >
-            <span className="relative z-10">{children}</span>
-            <style jsx global>{`
-                span.ripple {
-                    position: absolute;
-                    border-radius: 50%;
-                    transform: scale(0);
-                    animation: ripple 600ms linear;
-                    background-color: rgba(255,255,255,0.3);
-                    pointer-events: none;
-                }
-                @keyframes ripple {
-                    to { transform: scale(4); opacity: 0; }
-                }
-            `}</style>
-        </button>
-    );
-};
 
 const PortControlSection = () => {
     const [isToggling, setIsToggling] = useState(false);
@@ -78,30 +37,29 @@ const PortControlSection = () => {
     };
 
     return (
-        <Card className="p-4 sm:p-6 border-border bg-card w-full mb-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="rounded-sm border border-border bg-card w-full">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 sm:p-6">
                 <div>
-                    <h3 className="text-lg sm:text-xl font-bold uppercase tracking-tight">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                         Public API Gateway
                     </h3>
                     <p className="text-xs text-muted-foreground mt-1">
                         Status control for Public Port 5013
                     </p>
                 </div>
-                <RippleButton
-                    disabled={isToggling}
+                <Button
+                    ripple
+                    variant="outline"
+                    tone={portActive ? 'active' : 'inactive'}
+                    pending={isToggling}
+                    pendingText="Synchronizing…"
                     onClick={() => handleTogglePort(portActive ? 'stop' : 'start')}
-                    className={`w-full sm:w-auto px-8 py-3 text-xs font-bold uppercase tracking-widest border
-                        ${portActive
-                            ? 'bg-green-500/10 border-green-500 text-green-500'
-                            : 'bg-red-500/10 border-red-500 text-red-500'}`}
+                    className="w-full sm:w-auto px-8 text-xs font-bold uppercase tracking-widest"
                 >
-                    {isToggling
-                        ? 'Synchronizing...'
-                        : `Port 5013: ${portActive ? 'Online' : 'Offline'}`}
-                </RippleButton>
+                    {`Port 5013: ${portActive ? 'Online' : 'Offline'}`}
+                </Button>
             </div>
-        </Card>
+        </div>
     );
 };
 
@@ -182,47 +140,50 @@ const ServiceSection = ({
     };
 
     return (
-        <Card className="p-4 sm:p-6 border-border bg-card w-full min-w-0">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                <div>
-                    <h3 className="text-lg sm:text-xl font-bold uppercase tracking-tight">
-                        {title}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        {description}
-                    </p>
+        <div className="rounded-sm border border-border bg-card w-full min-w-0">
+            <div className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                    <div>
+                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            {title}
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {description}
+                        </p>
+                    </div>
+
+                    <Button
+                        ripple
+                        variant="outline"
+                        tone={isProcessing ? 'none' : 'active'}
+                        pending={isProcessing}
+                        pendingText="Syncing…"
+                        onClick={handleRestart}
+                        className="w-[192px] text-xs font-bold uppercase tracking-widest"
+                    >
+                        Pull Updates
+                    </Button>
                 </div>
 
-                <RippleButton
-                    disabled={isProcessing}
-                    onClick={handleRestart}
-                    className={`cursor-pointer w-[192px] px-6 py-3 text-xs font-bold uppercase tracking-widest border
-                        ${isProcessing
-                            ? 'bg-secondary text-muted-foreground border-secondary'
-                            : 'bg-green-500/10 border-green-500 text-green-500 hover:bg-green'}`}
-                >
-                    {isProcessing ? 'Syncing...' : 'Pull Updates'}
-                </RippleButton>
-            </div>
+                {progress && (
+                    <Alert className="mb-4 text-xs font-bold border">
+                        {progress.message}
+                    </Alert>
+                )}
 
-            {progress && (
-                <Alert className="mb-4 text-xs font-bold border">
-                    {progress.message}
-                </Alert>
-            )}
-
-            <div className="relative w-full">
-                <div className="absolute top-0 right-0 bg-secondary px-2 py-1 text-[9px] font-bold uppercase z-10">
-                    Live Console
+                <div className="relative w-full">
+                    <div className="absolute top-0 right-0 bg-secondary px-2 py-1 text-[9px] font-bold uppercase z-10">
+                        Live Console
+                    </div>
+                    <pre
+                        ref={logRef}
+                        className="bg-background/40 text-white w-full h-[480px] p-4 pt-8 md:text-[16px] text-sm overflow-y-auto whitespace-pre rounded-sm border border-border shadow-inner"
+                    >
+                        {logs.join('\n')}
+                    </pre>
                 </div>
-                <pre
-                    ref={logRef}
-                    className="bg-background/40 text-white w-full h-[480px] p-4 pt-8 md:text-[16px] text-sm h-64 overflow-y-auto whitespace-pre border border-border shadow-inner"
-                >
-                    {logs.join('\n')}
-                </pre>
             </div>
-        </Card>
+        </div>
     );
 };
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { recoverServer } from '@/app/actions/services';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
@@ -28,9 +29,9 @@ export function RecoverAllButton() {
 
     return (
         <>
-            <Button variant="outline" size="sm" onClick={run} disabled={busy}>
-                {busy ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-heart-pulse" />}
-                <span className="ml-2">Recover all</span>
+            <Button variant="outline" size="sm" onClick={run} pending={busy} pendingText="Recovering…">
+                <i className="fa-solid fa-heart-pulse mr-1.5" />
+                Recover all
             </Button>
 
             <Dialog open={open} onOpenChange={setOpen}>
@@ -43,8 +44,15 @@ export function RecoverAllButton() {
                     </DialogHeader>
 
                     {busy ? (
-                        <div className="py-8 text-center text-sm text-muted-foreground">
-                            <i className="fa-solid fa-spinner fa-spin mr-2" />Recovering…
+                        <div className="space-y-2 py-2">
+                            <div className="flex items-center gap-4">
+                                <Skeleton className="h-4 w-16" />
+                                <Skeleton className="h-4 w-24 bg-muted/25" />
+                                <Skeleton className="h-4 w-20 bg-muted/25" />
+                            </div>
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <Skeleton key={i} className="h-8 w-full bg-muted/20" style={{ opacity: 1 - i * 0.15 }} />
+                            ))}
                         </div>
                     ) : result && !result.success ? (
                         <p className="py-4 text-sm text-destructive">{result.error || 'Recovery failed.'}</p>

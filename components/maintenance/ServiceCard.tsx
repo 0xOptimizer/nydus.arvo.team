@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 export function ServiceCard({ service, onChanged }: { service: any; onChanged: () => void }) {
@@ -54,7 +55,7 @@ export function ServiceCard({ service, onChanged }: { service: any; onChanged: (
     };
 
     return (
-        <Card className="border-border bg-card p-4 min-w-0">
+        <Card className="rounded-sm border-border bg-card p-4 min-w-0">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex items-start gap-2.5">
                     <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', enabled ? 'bg-green-500' : 'bg-muted-foreground/40')} />
@@ -73,14 +74,14 @@ export function ServiceCard({ service, onChanged }: { service: any; onChanged: (
             )}
 
             <div className="mt-3 flex flex-wrap gap-1.5">
-                <Button variant="outline" size="sm" disabled={busyKey === 'restart'} onClick={() => run('restart', 'restart')}>
-                    {busyKey === 'restart' ? <i className="fa-solid fa-spinner fa-spin" /> : 'Restart'}
+                <Button variant="outline" size="sm" pending={busyKey === 'restart'} onClick={() => run('restart', 'restart')}>
+                    Restart
                 </Button>
-                <Button variant="outline" size="sm" disabled={busyKey === 'stop'} onClick={() => run('stop', 'stop', `Stop ${service.name}?`)}>
-                    {busyKey === 'stop' ? <i className="fa-solid fa-spinner fa-spin" /> : 'Stop'}
+                <Button variant="outline" size="sm" pending={busyKey === 'stop'} onClick={() => run('stop', 'stop', `Stop ${service.name}?`)}>
+                    Stop
                 </Button>
-                <Button variant="outline" size="sm" disabled={busyKey === 'start'} onClick={() => run('start', 'start')}>
-                    {busyKey === 'start' ? <i className="fa-solid fa-spinner fa-spin" /> : 'Start'}
+                <Button variant="outline" size="sm" pending={busyKey === 'start'} onClick={() => run('start', 'start')}>
+                    Start
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setShowLogs(s => !s)}>
                     <i className={cn('fa-solid mr-1.5 text-xs', showLogs ? 'fa-eye-slash' : 'fa-terminal')} />
@@ -100,15 +101,19 @@ export function ServiceCard({ service, onChanged }: { service: any; onChanged: (
                         </Button>
                     }
                 />
-                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" disabled={busyKey === 'delete'} onClick={handleDelete}>
-                    {busyKey === 'delete' ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-trash" />}
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" pending={busyKey === 'delete'} onClick={handleDelete}>
+                    <i className="fa-solid fa-trash" />
                 </Button>
             </div>
 
             {showDiag && (
                 <div className="mt-3 rounded-sm border border-border bg-background/40 p-3">
-                    {diagLoading ? (
-                        <p className="text-xs text-muted-foreground"><i className="fa-solid fa-spinner fa-spin mr-2" />Loading diagnostics…</p>
+                    {diagLoading && !diag ? (
+                        <div className="space-y-2">
+                            <Skeleton className="h-3 w-40" />
+                            <Skeleton className="h-3 w-full bg-muted/25" />
+                            <Skeleton className="h-3 w-3/4 bg-muted/25" />
+                        </div>
                     ) : (
                         <ServiceDiagnostics diag={diag} />
                     )}

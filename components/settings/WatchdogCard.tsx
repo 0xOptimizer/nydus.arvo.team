@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getWatchdog, setWatchdog } from '@/app/actions/watchdog';
-import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { CardSkeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 const POLL_MS = 15_000;
@@ -44,19 +44,21 @@ export function WatchdogCard() {
     // enabled but still in the startup grace window
     const inGrace = alertsEnabled && !alertingNow && graceRemaining > 0;
 
+    if (loading && !status) {
+        return <CardSkeleton rows={2} />;
+    }
+
     return (
-        <Card className="border-border bg-card p-8">
-            <div className="flex items-center gap-3 mb-6 border-b border-border pb-4">
-                <i className="fa-solid fa-shield-dog text-2xl text-foreground" />
-                <h3 className="text-lg font-bold text-foreground uppercase tracking-wide">Health Watchdog</h3>
+        <div className="rounded-sm border border-border bg-card">
+            <div className="flex items-center gap-3 border-b border-border p-4">
+                <i className="fa-solid fa-shield-dog text-base text-muted-foreground" />
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Health Watchdog</h3>
             </div>
 
-            {loading ? (
-                <p className="text-sm text-muted-foreground">Loading…</p>
-            ) : !status ? (
-                <p className="text-sm text-muted-foreground">Watchdog status unavailable (backend unreachable).</p>
+            {!status ? (
+                <p className="p-4 sm:p-6 text-sm text-muted-foreground">Watchdog status unavailable (backend unreachable).</p>
             ) : (
-                <div className="space-y-5">
+                <div className="space-y-5 p-4 sm:p-6">
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <p className="text-sm font-medium">Alerting</p>
@@ -79,11 +81,16 @@ export function WatchdogCard() {
                                 </span>
                             </div>
                         </div>
-                        <Switch
-                            checked={alertsEnabled}
-                            disabled={busy === 'alerts_enabled'}
-                            onCheckedChange={(v) => patch('alerts_enabled', v)}
-                        />
+                        <div className="flex shrink-0 items-center gap-2">
+                            {busy === 'alerts_enabled' && (
+                                <i className="fa-solid fa-spinner fa-spin text-xs text-muted-foreground" />
+                            )}
+                            <Switch
+                                checked={alertsEnabled}
+                                disabled={busy === 'alerts_enabled'}
+                                onCheckedChange={(v) => patch('alerts_enabled', v)}
+                            />
+                        </div>
                     </div>
 
                     {status.self_heal_enabled !== undefined && (
@@ -94,11 +101,16 @@ export function WatchdogCard() {
                                     Automatically recover failed targets when the watchdog detects them down.
                                 </p>
                             </div>
-                            <Switch
-                                checked={!!status.self_heal_enabled}
-                                disabled={busy === 'self_heal_enabled'}
-                                onCheckedChange={(v) => patch('self_heal_enabled', v)}
-                            />
+                            <div className="flex shrink-0 items-center gap-2">
+                                {busy === 'self_heal_enabled' && (
+                                    <i className="fa-solid fa-spinner fa-spin text-xs text-muted-foreground" />
+                                )}
+                                <Switch
+                                    checked={!!status.self_heal_enabled}
+                                    disabled={busy === 'self_heal_enabled'}
+                                    onCheckedChange={(v) => patch('self_heal_enabled', v)}
+                                />
+                            </div>
                         </div>
                     )}
 
@@ -108,7 +120,7 @@ export function WatchdogCard() {
                     </p>
                 </div>
             )}
-        </Card>
+        </div>
     );
 }
 

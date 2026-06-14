@@ -25,6 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Skeleton, CardSkeleton } from "@/components/ui/skeleton"
+import { AnimatedNumber } from "@/components/AnimatedNumber"
 import { getCloudflareAnalytics } from "@/app/actions/cloudflare"
 
 const chartConfig = {
@@ -183,6 +185,26 @@ export default function AnalyticsPanel() {
     [granularity]
   )
 
+  if (loading && data.length === 0) {
+    return (
+      <div className="w-full space-y-8">
+        <div className="flex items-center justify-end">
+          <Skeleton className="h-9 w-[180px] bg-muted/30" />
+        </div>
+        <CardSkeleton rows={6} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <CardSkeleton rows={4} />
+          <CardSkeleton rows={4} />
+        </div>
+        <CardSkeleton rows={5} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">
+          <CardSkeleton rows={4} />
+          <CardSkeleton rows={4} />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="w-full space-y-8">
       <div className="flex items-center justify-end">
@@ -205,7 +227,7 @@ export default function AnalyticsPanel() {
       </div>
 
       {/* Unique Visitors Chart */}
-      <Card className="bg-card border-border overflow-hidden">
+      <Card className="rounded-sm bg-card border-border overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="grid gap-1">
             <CardTitle className="text-base font-medium text-white">Unique Visitors</CardTitle>
@@ -215,9 +237,7 @@ export default function AnalyticsPanel() {
           </div>
           <div className="flex flex-col items-end">
             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Total</span>
-            <span className="text-3xl font-black tabular-nums text-white">
-              {totalVisitors.toLocaleString()}
-            </span>
+            <AnimatedNumber value={totalVisitors} className="text-3xl font-black text-white" />
           </div>
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
@@ -254,7 +274,7 @@ export default function AnalyticsPanel() {
 
       {/* Device Distribution & Top Countries */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="bg-card border-border">
+        <Card className="rounded-sm bg-card border-border">
           <CardHeader className="pb-0">
             <CardTitle className="text-white text-center">Device Distribution</CardTitle>
           </CardHeader>
@@ -308,7 +328,7 @@ export default function AnalyticsPanel() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card border-border w-full min-w-0">
+        <Card className="rounded-sm bg-card border-border w-full min-w-0">
           <CardHeader>
             <CardTitle className="text-white">Top Countries</CardTitle>
           </CardHeader>
@@ -392,7 +412,7 @@ export default function AnalyticsPanel() {
       </div>
 
       {/* Bandwidth Chart */}
-      <Card className="bg-card border-border">
+      <Card className="rounded-sm bg-card border-border">
         <CardHeader>
           <div className="grid gap-1">
             <CardTitle className="text-base font-medium text-white">Bandwidth</CardTitle>
@@ -430,7 +450,7 @@ export default function AnalyticsPanel() {
 
       {/* Browsers & Operating Systems */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">
-        <Card className="bg-card border-border w-full min-w-0">
+        <Card className="rounded-sm bg-card border-border w-full min-w-0">
           <CardHeader>
             <CardTitle className="text-white">Top Browsers</CardTitle>
           </CardHeader>
@@ -476,7 +496,7 @@ export default function AnalyticsPanel() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card border-border w-full min-w-0">
+        <Card className="rounded-sm bg-card border-border w-full min-w-0">
           <CardHeader>
             <CardTitle className="text-white">Top Operating Systems</CardTitle>
           </CardHeader>

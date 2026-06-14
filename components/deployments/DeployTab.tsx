@@ -8,21 +8,27 @@ import {
     triggerDeploy, triggerRebuild,
     getEnvLines, updateEnvLine, addEnvLine, deleteEnvLine,
 } from '@/app/actions/deployments';
-import { StatusBadge } from '@/components/StatusBadge';
+import { motion, AnimatePresence } from 'motion/react';
+import { AnimatedStatusBadge } from '@/components/AnimatedStatusBadge';
+import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { DeployInstructions } from '@/components/deployments/DeployInstructions';
 import { formatDateTime } from '@/lib/format';
 import { deploymentFqdn, dnsModeLabel } from '@/lib/deployments';
+import { staggerContainer, staggerItem, listItem } from '@/lib/motion';
 import { Input }                  from '@/components/ui/input';
 import { Badge }                  from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button }                 from '@/components/ui/button';
+import { SegmentedControl }       from '@/components/ui/segmented';
 import { Separator }              from '@/components/ui/separator';
+import { TableRowsSkeleton }      from '@/components/ui/skeleton';
+import { EmptyState }             from '@/components/EmptyState';
 import {
     Dialog, DialogContent, DialogHeader,
     DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const SUBDOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const ENV_KEY_RE   = /^[A-Z_][A-Z0-9_]*$/;
@@ -282,13 +288,15 @@ export default function DeployTab() {
                         {!formCollapsed && (
                             <>
                                 <Separator />
-                                {loading ? (
-                                    <div className="p-8 text-center text-sm text-muted-foreground">
-                                        Loading projects...
-                                    </div>
+                                {loading && projects.length === 0 ? (
+                                    <TableRowsSkeleton rows={3} cols={4} />
                                 ) : projects.length === 0 ? (
-                                    <div className="p-8 text-center text-sm text-muted-foreground">
-                                        No attached projects found.
+                                    <div className="p-4 sm:p-6">
+                                        <EmptyState
+                                            icon="fa-solid fa-folder-open"
+                                            title="No attached projects found"
+                                            hint="Attach a project to deploy it here."
+                                        />
                                     </div>
                                 ) : (
                                     <Table>
@@ -300,9 +308,18 @@ export default function DeployTab() {
                                                 <TableHead className="text-right pr-4">Action</TableHead>
                                             </TableRow>
                                         </TableHeader>
-                                        <TableBody>
+                                        <motion.tbody
+                                            className="[&_tr:last-child]:border-0"
+                                            variants={staggerContainer}
+                                            initial="hidden"
+                                            animate="show"
+                                        >
                                             {projects.map((p: any) => (
-                                                <TableRow key={p.project_uuid}>
+                                                <motion.tr
+                                                    key={p.project_uuid}
+                                                    variants={staggerItem}
+                                                    className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
+                                                >
                                                     <TableCell className="font-mono text-sm py-2.5">
                                                         {p.name}
                                                     </TableCell>
@@ -321,9 +338,9 @@ export default function DeployTab() {
                                                             Deploy
                                                         </Button>
                                                     </TableCell>
-                                                </TableRow>
+                                                </motion.tr>
                                             ))}
-                                        </TableBody>
+                                        </motion.tbody>
                                     </Table>
                                 )}
                             </>
@@ -332,14 +349,12 @@ export default function DeployTab() {
 
                     {/* Deployments table */}
                     <div className="border border-border rounded-sm bg-card">
-                        <div className="p-4 pb-0">
-                            <p className="text-sm font-medium">Deployments</p>
+                        <div className="flex items-center justify-between border-b border-border p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Deployments</p>
                         </div>
 
                         {loading && deployments.length === 0 ? (
-                            <div className="p-8 text-center text-sm text-muted-foreground">
-                                Loading...
-                            </div>
+                            <TableRowsSkeleton rows={5} cols={6} />
                         ) : (
                             <Table>
                                 <TableHeader>
@@ -352,9 +367,23 @@ export default function DeployTab() {
                                         <TableHead className="text-right pr-4">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
-                                <TableBody>
+                                <motion.tbody
+                                    className="[&_tr:last-child]:border-0"
+                                    variants={staggerContainer}
+                                    initial="hidden"
+                                    animate="show"
+                                >
+                                  <AnimatePresence initial={false}>
                                     {deployments.map((d: any) => (
-                                        <TableRow key={d.deployment_uuid}>
+                                        <motion.tr
+                                            key={d.deployment_uuid}
+                                            layout
+                                            variants={listItem}
+                                            initial="hidden"
+                                            animate="show"
+                                            exit="exit"
+                                            className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
+                                        >
                                             <TableCell className="py-2.5">
                                                 <a
                                                     href={`https://${deploymentFqdn(d)}`}
@@ -382,7 +411,7 @@ export default function DeployTab() {
                                                 {d.assigned_port ?? '—'}
                                             </TableCell>
                                             <TableCell className="py-2.5">
-                                                <StatusBadge status={d.status} />
+                                                <AnimatedStatusBadge status={d.status} />
                                             </TableCell>
                                             <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
                                                 {formatDateTime(d.deployed_at)}
@@ -430,15 +459,10 @@ export default function DeployTab() {
                                                                     size="sm"
                                                                     className="h-7 w-7 p-0"
                                                                     onClick={() => openRebuildDialog(d)}
-                                                                    disabled={
-                                                                        d.status === 'pending' ||
-                                                                        busyKey === `rebuild-${d.deployment_uuid}`
-                                                                    }
+                                                                    disabled={d.status === 'pending'}
+                                                                    pending={busyKey === `rebuild-${d.deployment_uuid}`}
                                                                 >
-                                                                    {busyKey === `rebuild-${d.deployment_uuid}`
-                                                                        ? <i className="fa-solid fa-spinner fa-spin" />
-                                                                        : <i className="fa-solid fa-rotate" />
-                                                                    }
+                                                                    <i className="fa-solid fa-rotate" />
                                                                 </Button>
                                                             </span>
                                                         </TooltipTrigger>
@@ -446,20 +470,20 @@ export default function DeployTab() {
                                                     </Tooltip>
                                                 </div>
                                             </TableCell>
-                                        </TableRow>
+                                        </motion.tr>
                                     ))}
-                                    {deployments.length === 0 && (
-                                        <TableRow>
-                                            <TableCell
-                                                colSpan={6}
-                                                className="px-6 py-10 text-center text-sm text-muted-foreground"
-                                            >
-                                                No deployments yet.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
+                                  </AnimatePresence>
+                                </motion.tbody>
                             </Table>
+                        )}
+                        {!loading && deployments.length === 0 && (
+                            <div className="p-4 sm:p-6">
+                                <EmptyState
+                                    icon="fa-solid fa-rocket"
+                                    title="No deployments yet"
+                                    hint="Deploy a project above to see it listed here."
+                                />
+                            </div>
                         )}
                     </div>
                 </div>
@@ -467,11 +491,10 @@ export default function DeployTab() {
                 {/* Right column */}
                 <div className="w-full lg:w-80 space-y-4">
                     <div className="border border-border rounded-sm bg-card">
-                        <div className="p-4">
-                            <h3 className="text-sm font-medium">Summary</h3>
+                        <div className="flex items-center justify-between border-b border-border p-4">
+                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Summary</h3>
                         </div>
-                        <Separator />
-                        <div className="p-4 space-y-3">
+                        <div className="p-4 sm:p-6 space-y-3">
                             {[
                                 { label: 'Total',     value: deployments.length,                                       color: '' },
                                 { label: 'Active',    value: deployments.filter(d => d.status === 'active').length,    color: 'text-green-500' },
@@ -481,9 +504,7 @@ export default function DeployTab() {
                             ].map(({ label, value, color }) => (
                                 <div key={label} className="flex items-center justify-between">
                                     <span className="text-xs text-muted-foreground">{label}</span>
-                                    <span className={`text-sm font-mono font-medium tabular-nums ${color}`}>
-                                        {value}
-                                    </span>
+                                    <AnimatedNumber value={value} className={`text-sm font-medium ${color}`} />
                                 </div>
                             ))}
                         </div>
@@ -514,23 +535,12 @@ export default function DeployTab() {
                         {/* DNS mode selector */}
                         <div>
                             <label className="block text-xs text-muted-foreground mb-1.5">Domain mode</label>
-                            <div className="grid grid-cols-3 gap-1.5">
-                                {DNS_MODE_OPTIONS.map(opt => (
-                                    <button
-                                        key={opt.value}
-                                        type="button"
-                                        onClick={() => { setDnsMode(opt.value); setTargetErr(''); }}
-                                        disabled={deploying}
-                                        className={`rounded-sm border px-2 py-1.5 text-xs font-medium transition-colors ${
-                                            dnsMode === opt.value
-                                                ? 'border-primary bg-primary/10 text-primary'
-                                                : 'border-border text-muted-foreground hover:text-foreground'
-                                        }`}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
+                            <SegmentedControl
+                                options={DNS_MODE_OPTIONS.map(opt => ({ value: opt.value, label: opt.label }))}
+                                value={dnsMode}
+                                onChange={(v) => { setDnsMode(v); setTargetErr(''); }}
+                                disabled={deploying}
+                            />
                             <p className="mt-1.5 text-[11px] text-muted-foreground">
                                 {DNS_MODE_OPTIONS.find(o => o.value === dnsMode)?.hint}
                             </p>
@@ -586,12 +596,11 @@ export default function DeployTab() {
                         </Button>
                         <Button
                             onClick={handleDeploy}
-                            disabled={deploying || (dnsMode === 'subdomain' ? !subdomain : !domain)}
+                            disabled={dnsMode === 'subdomain' ? !subdomain : !domain}
+                            pending={deploying}
+                            pendingText="Starting..."
                         >
-                            {deploying
-                                ? <><i className="fa-solid fa-spinner fa-spin mr-2" />Starting...</>
-                                : 'Start Deployment'
-                            }
+                            Start Deployment
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -623,12 +632,10 @@ export default function DeployTab() {
                         </Button>
                         <Button
                             onClick={handleRebuild}
-                            disabled={busyKey === `rebuild-${rebuildTarget?.deployment_uuid}`}
+                            pending={busyKey === `rebuild-${rebuildTarget?.deployment_uuid}`}
+                            pendingText="Queuing..."
                         >
-                            {busyKey === `rebuild-${rebuildTarget?.deployment_uuid}`
-                                ? <><i className="fa-solid fa-spinner fa-spin mr-2" />Queuing...</>
-                                : 'Rebuild'
-                            }
+                            Rebuild
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -651,9 +658,7 @@ export default function DeployTab() {
 
                     <div className="py-2">
                         {envLoading ? (
-                            <div className="py-8 text-center text-sm text-muted-foreground">
-                                Loading...
-                            </div>
+                            <TableRowsSkeleton rows={4} cols={3} />
                         ) : (
                             <>
                                 <Table>
@@ -664,9 +669,23 @@ export default function DeployTab() {
                                             <TableHead className="w-20 text-right pr-2">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
-                                    <TableBody>
+                                    <motion.tbody
+                                        className="[&_tr:last-child]:border-0"
+                                        variants={staggerContainer}
+                                        initial="hidden"
+                                        animate="show"
+                                    >
+                                      <AnimatePresence initial={false}>
                                         {envLines.map(({ key, value }) => (
-                                            <TableRow key={key}>
+                                            <motion.tr
+                                                key={key}
+                                                layout
+                                                variants={listItem}
+                                                initial="hidden"
+                                                animate="show"
+                                                exit="exit"
+                                                className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
+                                            >
                                                 <TableCell className="font-mono text-xs py-2 align-middle">
                                                     {key}
                                                 </TableCell>
@@ -696,12 +715,9 @@ export default function DeployTab() {
                                                                     size="sm"
                                                                     className="h-6 w-6 p-0"
                                                                     onClick={() => handleEnvSave(key)}
-                                                                    disabled={envBusy === key}
+                                                                    pending={envBusy === key}
                                                                 >
-                                                                    {envBusy === key
-                                                                        ? <i className="fa-solid fa-spinner fa-spin" />
-                                                                        : <i className="fa-solid fa-check" />
-                                                                    }
+                                                                    <i className="fa-solid fa-check" />
                                                                 </Button>
                                                                 <Button
                                                                     variant="outline"
@@ -729,18 +745,16 @@ export default function DeployTab() {
                                                                     size="sm"
                                                                     className="h-6 w-6 p-0 text-destructive hover:text-destructive"
                                                                     onClick={() => handleEnvDelete(key)}
-                                                                    disabled={!!envBusy}
+                                                                    disabled={!!envBusy && envBusy !== key}
+                                                                    pending={envBusy === key}
                                                                 >
-                                                                    {envBusy === key
-                                                                        ? <i className="fa-solid fa-spinner fa-spin" />
-                                                                        : <i className="fa-solid fa-trash" />
-                                                                    }
+                                                                    <i className="fa-solid fa-trash" />
                                                                 </Button>
                                                             </>
                                                         )}
                                                     </div>
                                                 </TableCell>
-                                            </TableRow>
+                                            </motion.tr>
                                         ))}
                                         {envLines.length === 0 && (
                                             <TableRow>
@@ -752,7 +766,8 @@ export default function DeployTab() {
                                                 </TableCell>
                                             </TableRow>
                                         )}
-                                    </TableBody>
+                                      </AnimatePresence>
+                                    </motion.tbody>
                                 </Table>
 
                                 <Separator className="my-3" />
@@ -788,13 +803,11 @@ export default function DeployTab() {
                                             variant="outline"
                                             size="sm"
                                             onClick={handleEnvAdd}
-                                            disabled={!newKey || envBusy === '__new__'}
+                                            disabled={!newKey}
+                                            pending={envBusy === '__new__'}
                                             className="shrink-0"
                                         >
-                                            {envBusy === '__new__'
-                                                ? <i className="fa-solid fa-spinner fa-spin" />
-                                                : 'Add'
-                                            }
+                                            Add
                                         </Button>
                                     </div>
                                 </div>

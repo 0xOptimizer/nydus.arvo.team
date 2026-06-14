@@ -13,6 +13,7 @@ import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { PageShell } from '@/components/PageShell'
+import { SegmentedControl } from '@/components/ui/segmented'
 
 const MAX_FILES = 10
 const PREVIEW_TEXT_LIMIT = 1500
@@ -260,27 +261,20 @@ export default function UploadPage() {
                 <div className="flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
                         <span className="text-sm text-muted-foreground">Upload as</span>
-                        <div className="flex gap-0.5 border border-border rounded-sm p-0.5 bg-card">
-                            {(['general', 'phpmyadmin'] as UploadType[]).map(t => (
-                                <button
-                                    key={t}
-                                    onClick={() => setUploadType(t)}
-                                    className={`px-3 py-1 rounded-sm text-xs transition-colors ${
-                                        uploadType === t
-                                            ? 'bg-foreground text-background'
-                                            : 'text-muted-foreground hover:text-foreground'
-                                    }`}
-                                >
-                                    {t === 'general' ? 'General' : 'phpMyAdmin'}
-                                </button>
-                            ))}
-                        </div>
+                        <SegmentedControl
+                            value={uploadType}
+                            onChange={setUploadType}
+                            options={[
+                                { value: 'general', label: 'General' },
+                                { value: 'phpmyadmin', label: 'phpMyAdmin' },
+                            ]}
+                        />
                         <span className="text-xs text-muted-foreground hidden sm:inline">
                             {uploadType === 'phpmyadmin' ? 'SQL export files for database import' : 'Any file type accepted'}
                         </span>
                     </div>
                     {hasFinished && (
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleClearFinished}>
+                        <Button variant="outline" size="sm" onClick={handleClearFinished}>
                             Clear finished
                         </Button>
                     )}
@@ -346,10 +340,10 @@ export default function UploadPage() {
                         onDragOver={handleDragOver}
                         onDrop={handleDrop}
                     >
-                        <div className="p-3 flex items-center justify-between border-b border-border">
+                        <div className="flex items-center justify-between border-b border-border p-4">
                             <div className="flex items-center gap-2">
-                                <i className="fa-solid fa-list text-muted-foreground text-xs" />
-                                <p className="text-sm font-medium">Queue</p>
+                                <i className="fa-solid fa-list text-muted-foreground text-[10px]" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Queue</p>
                                 <Badge variant="outline" className="text-xs font-normal tabular-nums">
                                     {queue.filter(q => q.status !== 'cancelled' && q.status !== 'error' && q.status !== 'complete').length} / {MAX_FILES}
                                 </Badge>
@@ -373,7 +367,7 @@ export default function UploadPage() {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 text-xs gap-1.5"
+                                    className="gap-1.5"
                                     onClick={() => fileInputRef.current?.click()}
                                 >
                                     <i className="fa-solid fa-plus text-xs" />
@@ -560,8 +554,8 @@ export default function UploadPage() {
                     </div>
 
                     <div className="w-full lg:w-72 border border-border rounded-sm bg-card shrink-0">
-                        <div className="p-3 border-b border-border">
-                            <p className="text-sm font-medium">Preview</p>
+                        <div className="flex items-center justify-between border-b border-border p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Preview</p>
                         </div>
 
                         {selectedEntry ? (

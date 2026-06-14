@@ -1,15 +1,19 @@
 'use client'
 
 import { useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { useDatabaseContext } from '@/app/databases/context/DatabaseContext'
 import { createDatabaseUser, deleteDatabaseUser } from '@/app/actions/databases'
 import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Alert } from '@/components/ui/alert'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { RippleButton } from '@/components/RippleButton'
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableRowsSkeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/EmptyState'
+import { PageShell } from '@/components/PageShell'
+import { staggerContainer, listItem } from '@/lib/motion'
 
 const TOUHOU_NAMES = [
     'reimu', 'marisa', 'sakuya', 'remilia', 'flandre',
@@ -85,23 +89,26 @@ export default function UsersTab() {
 
     return (
         <TooltipProvider>
-        <div className="space-y-8">
+        <PageShell title="Users" description="Create database users and manage their access.">
             {error && (
-                <Alert className="bg-red-950/30 border-red-900/50 text-red-200 text-xs font-bold">
-                    <i className="fa-solid fa-triangle-exclamation mr-2" />{error}
+                <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
                 </Alert>
             )}
             {successMsg && (
-                <Alert className="bg-emerald-950/30 border-emerald-900/50 text-emerald-200 text-xs font-bold">
-                    <i className="fa-solid fa-circle-check mr-2" />{successMsg}
+                <Alert>
+                    <AlertDescription>{successMsg}</AlertDescription>
                 </Alert>
             )}
 
-            <Card className="p-6 border-border bg-card">
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">
-                    <i className="fa-solid fa-user-plus mr-2 text-primary" />
-                    Create Database User
-                </h3>
+            <div className="rounded-sm border border-border bg-card">
+                <div className="flex items-center justify-between border-b border-border p-4">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        <i className="fa-solid fa-user-plus mr-2 text-primary" />
+                        Create Database User
+                    </h3>
+                </div>
+                <div className="p-4 sm:p-6">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                     <div className="md:col-span-2">
                         <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Engine</label>
@@ -162,13 +169,17 @@ export default function UsersTab() {
                         </select>
                     </div>
                     <div className="md:col-span-2">
-                        <RippleButton
+                        <Button
+                            ripple
+                            variant="outline"
                             onClick={handleCreateUser}
-                            disabled={!newUsername || !newPassword || !actorId || creatingUser || dbUsers.some((u: any) => u.username === newUsername)}
-                            className="w-full h-10 flex items-center justify-center gap-2"
+                            disabled={!newUsername || !newPassword || !actorId || dbUsers.some((u: any) => u.username === newUsername)}
+                            pending={creatingUser}
+                            pendingText="Creating..."
+                            className="w-full h-10"
                         >
-                            {creatingUser ? <i className="fa-solid fa-spinner fa-spin" /> : 'Create'}
-                        </RippleButton>
+                            Create
+                        </Button>
                     </div>
                 </div>
                 {hostMode === 'custom' && (
@@ -187,28 +198,49 @@ export default function UsersTab() {
                 <p className="text-xs text-muted-foreground mt-4 border-l-2 border-border pl-3">
                     After creating a user, head to the <strong className="text-foreground">Assignments</strong> page to attach them to a database.
                 </p>
-            </Card>
+                </div>
+            </div>
 
-            <div className="space-y-4">
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">All Database Users</h3>
-                <Card className="border-border bg-card overflow-hidden">
-                    {loading ? (
-                        <div className="p-8 text-center text-muted-foreground text-sm">Loading users...</div>
-                    ) : (
-                        <Table>
-                            <TableHeader className="bg-secondary border-b border-border">
-                                <TableRow className="border-border">
-                                    <TableHead className="font-bold text-foreground uppercase text-xs">Username</TableHead>
-                                    <TableHead className="font-bold text-foreground uppercase text-xs hidden md:table-cell">UUID</TableHead>
-                                    <TableHead className="font-bold text-foreground uppercase text-xs hidden md:table-cell">Created</TableHead>
-                                    <TableHead className="font-bold text-foreground uppercase text-xs text-right pr-4">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
+            <div className="rounded-sm border border-border bg-card">
+                <div className="flex items-center justify-between border-b border-border p-4">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">All Database Users</h3>
+                </div>
+                {loading && dbUsers.length === 0 ? (
+                    <TableRowsSkeleton rows={5} cols={4} />
+                ) : dbUsers.length === 0 ? (
+                    <EmptyState
+                        icon="fa-solid fa-users"
+                        title="No database users found"
+                        hint="Create a user above to get started."
+                        className="border-0"
+                    />
+                ) : (
+                    <Table>
+                        <TableHeader className="bg-secondary border-b border-border">
+                            <TableRow className="border-border">
+                                <TableHead className="font-bold text-foreground uppercase text-xs">Username</TableHead>
+                                <TableHead className="font-bold text-foreground uppercase text-xs hidden md:table-cell">UUID</TableHead>
+                                <TableHead className="font-bold text-foreground uppercase text-xs hidden md:table-cell">Created</TableHead>
+                                <TableHead className="font-bold text-foreground uppercase text-xs text-right pr-4">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <motion.tbody
+                            className="[&_tr:last-child]:border-0"
+                            variants={staggerContainer}
+                            initial="hidden"
+                            animate="show"
+                        >
+                            <AnimatePresence initial={false}>
                                 {dbUsers.map((u: any) => {
                                     const count = dbCountForUser(u.user_uuid)
                                     return (
-                                        <TableRow key={u.user_uuid} className="border-b border-border hover:bg-secondary/50 transition-colors">
+                                        <motion.tr
+                                            key={u.user_uuid}
+                                            layout
+                                            variants={listItem}
+                                            exit="exit"
+                                            className="border-b border-border transition-colors hover:bg-secondary/50"
+                                        >
                                             <TableCell className="font-mono text-sm font-semibold text-foreground">{u.username}</TableCell>
                                             <TableCell className="font-mono text-xs text-muted-foreground hidden md:table-cell">{u.user_uuid}</TableCell>
                                             <TableCell className="font-mono text-xs text-muted-foreground hidden md:table-cell">
@@ -233,34 +265,27 @@ export default function UsersTab() {
                                                                 : 'Not attached to any database'}
                                                         </TooltipContent>
                                                     </Tooltip>
-                                                    <RippleButton
-                                                        variant="danger"
+                                                    <Button
+                                                        ripple
+                                                        variant="destructive"
+                                                        size="sm"
                                                         onClick={() => handleDeleteUser(u)}
-                                                        disabled={busyKey === `del-u-${u.user_uuid}`}
-                                                        className="px-2.5 py-1 text-[10px]"
+                                                        pending={busyKey === `del-u-${u.user_uuid}`}
+                                                        pendingText="Delete"
                                                     >
-                                                        {busyKey === `del-u-${u.user_uuid}`
-                                                            ? <i className="fa-solid fa-spinner fa-spin" />
-                                                            : 'Delete'}
-                                                    </RippleButton>
+                                                        Delete
+                                                    </Button>
                                                 </div>
                                             </TableCell>
-                                        </TableRow>
+                                        </motion.tr>
                                     )
                                 })}
-                                {dbUsers.length === 0 && (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="px-6 py-8 text-center text-muted-foreground italic">
-                                            No database users found.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    )}
-                </Card>
+                            </AnimatePresence>
+                        </motion.tbody>
+                    </Table>
+                )}
             </div>
-        </div>
+        </PageShell>
         </TooltipProvider>
     )
 }

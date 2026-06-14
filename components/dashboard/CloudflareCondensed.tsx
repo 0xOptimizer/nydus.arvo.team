@@ -4,6 +4,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { AnimatedNumber } from '@/components/AnimatedNumber';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getCloudflareAnalytics } from '@/app/actions/cloudflare';
 
 const chartConfig = {
@@ -14,6 +16,7 @@ const chartConfig = {
 export function CloudflareCondensed() {
     const [data, setData] = React.useState<any[]>([]);
     const [granularity, setGranularity] = React.useState('daily');
+    const [loading, setLoading] = React.useState(true);
 
     React.useEffect(() => {
         let active = true;
@@ -26,6 +29,8 @@ export function CloudflareCondensed() {
                 }
             } catch (err) {
                 console.error(err);
+            } finally {
+                if (active) setLoading(false);
             }
         })();
         return () => { active = false; };
@@ -50,13 +55,20 @@ export function CloudflareCondensed() {
                     <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                         Traffic · last 7 days
                     </h3>
-                    <p className="mt-1 font-mono text-2xl font-bold tabular-nums">{total.toLocaleString()}</p>
+                    {loading ? (
+                        <Skeleton className="mt-1 h-7 w-24" />
+                    ) : (
+                        <AnimatedNumber value={total} className="mt-1 block text-2xl font-bold" />
+                    )}
                 </div>
                 <Link href="/cloudflare/analytics" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
                     Full analytics →
                 </Link>
             </div>
             <div className="p-2 sm:p-4">
+                {loading ? (
+                    <Skeleton className="h-[180px] w-full bg-muted/20" />
+                ) : (
                 <ChartContainer config={chartConfig} className="aspect-auto h-[180px] w-full">
                     <AreaChart data={data} margin={{ left: -20, right: 12, top: 8, bottom: 4 }}>
                         <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
@@ -80,6 +92,7 @@ export function CloudflareCondensed() {
                         />
                     </AreaChart>
                 </ChartContainer>
+                )}
             </div>
         </div>
     );

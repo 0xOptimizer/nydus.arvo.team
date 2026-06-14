@@ -2,19 +2,22 @@
 
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import { StatusBadge } from '@/components/StatusBadge';
+import { AnimatedStatusBadge } from '@/components/AnimatedStatusBadge';
 import { StatusChip } from '@/components/StatusChip';
 import { EmptyState } from '@/components/EmptyState';
+import { AnimatedNumber } from '@/components/AnimatedNumber';
+import { ListSkeleton } from '@/components/ui/skeleton';
 import { staggerContainer, staggerItem } from '@/lib/motion';
 import { pm2ChipState, httpChipState, sslChipState, dnsChipState } from '@/lib/health';
 import { deploymentFqdn } from '@/lib/deployments';
 
-export function DeploymentHealthGrid({ deployments }: { deployments: any[] }) {
+export function DeploymentHealthGrid({ deployments, loading }: { deployments: any[]; loading?: boolean }) {
     const counts = {
         active:    deployments.filter(d => d.status === 'active').length,
         unhealthy: deployments.filter(d => d.status === 'unhealthy').length,
         failed:    deployments.filter(d => d.status === 'failed').length,
     };
+    const isLoading = loading && deployments.length === 0;
 
     return (
         <div className="rounded-sm border border-border bg-card">
@@ -23,13 +26,15 @@ export function DeploymentHealthGrid({ deployments }: { deployments: any[] }) {
                     Deployment Health
                 </h3>
                 <div className="flex items-center gap-3 text-xs font-mono">
-                    <span className="text-green-500">{counts.active} active</span>
-                    <span className="text-amber-500">{counts.unhealthy} unhealthy</span>
-                    <span className="text-red-500">{counts.failed} failed</span>
+                    <span className="text-green-500"><AnimatedNumber value={counts.active} /> active</span>
+                    <span className="text-amber-500"><AnimatedNumber value={counts.unhealthy} /> unhealthy</span>
+                    <span className="text-red-500"><AnimatedNumber value={counts.failed} /> failed</span>
                 </div>
             </div>
 
-            {deployments.length === 0 ? (
+            {isLoading ? (
+                <ListSkeleton rows={3} />
+            ) : deployments.length === 0 ? (
                 <div className="p-4">
                     <EmptyState
                         icon="fa-solid fa-rocket"
@@ -52,7 +57,7 @@ export function DeploymentHealthGrid({ deployments }: { deployments: any[] }) {
                             >
                                 <div className="flex items-center justify-between gap-2">
                                     <span className="truncate font-mono text-sm">{deploymentFqdn(d)}</span>
-                                    <StatusBadge status={d.status} />
+                                    <AnimatedStatusBadge status={d.status} />
                                 </div>
                                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                                     <StatusChip label="pm2"  state={pm2ChipState(d.pm2)} />

@@ -6,10 +6,12 @@ import { startSelfTest, getSelftestStatus } from '@/app/actions/selftest';
 import { formatRelativeTime } from '@/lib/format';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { SegmentedControl } from '@/components/ui/segmented';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
-const VARIANTS = ['static', 'node', 'rebuild', 'webhook', 'rollback'];
+const VARIANTS = ['static', 'node', 'rebuild', 'webhook', 'rollback'] as const;
+type Variant = (typeof VARIANTS)[number];
 const STATUS_POLL_MS = 10_000;
 
 /**
@@ -20,7 +22,7 @@ const STATUS_POLL_MS = 10_000;
 export function SelfTestPanel() {
     const { startRun } = useStreamDock();
     const [starting, setStarting] = useState(false);
-    const [selected, setSelected] = useState<string[]>([]);
+    const [selected, setSelected] = useState<Variant[]>([]);
     const [notice, setNotice] = useState<{ kind: 'info' | 'warn' | 'error'; msg: string } | null>(null);
     const [active, setActive] = useState<any | null>(null);  // live run from another admin/session
 
@@ -37,9 +39,6 @@ export function SelfTestPanel() {
         document.addEventListener('visibilitychange', onVis);
         return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
     }, [poll]);
-
-    const toggle = (v: string) =>
-        setSelected(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
 
     const watch = (runId: string) => {
         startRun({ runId, kind: 'selftest', label: 'Self-test running' });
@@ -68,29 +67,22 @@ export function SelfTestPanel() {
     };
 
     return (
-        <Card className="p-4 sm:p-6 border-border bg-card">
+        <Card className="rounded-sm p-4 sm:p-6 border-border bg-card">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                    <h3 className="text-lg font-bold uppercase tracking-tight">Self-test</h3>
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Self-test</h3>
                     <p className="mt-1 text-xs text-muted-foreground">
                         Runs the real deploy pipeline against throwaway fixtures (staging certs), then tears it down.
                         Confirms deploys still work end-to-end.
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                        {VARIANTS.map(v => (
-                            <button
-                                key={v}
-                                onClick={() => toggle(v)}
-                                className={cn(
-                                    'rounded-sm border px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors',
-                                    selected.includes(v)
-                                        ? 'border-primary bg-primary/10 text-primary'
-                                        : 'border-border text-muted-foreground hover:text-foreground',
-                                )}
-                            >
-                                {v}
-                            </button>
-                        ))}
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                        <SegmentedControl<Variant>
+                            multiple
+                            size="sm"
+                            value={selected}
+                            onChange={(v) => setSelected(v)}
+                            options={VARIANTS.map(v => ({ value: v, label: v }))}
+                        />
                         <span className="self-center pl-1 text-[10px] text-muted-foreground">
                             {selected.length ? '' : '(all variants)'}
                         </span>
@@ -102,10 +94,8 @@ export function SelfTestPanel() {
                             <i className="fa-solid fa-eye mr-2" />Watch
                         </Button>
                     ) : null}
-                    <Button onClick={run} disabled={starting || !!active}>
-                        {starting
-                            ? <><i className="fa-solid fa-spinner fa-spin mr-2" />Starting…</>
-                            : <><i className="fa-solid fa-flask mr-2" />Run self-test</>}
+                    <Button onClick={run} disabled={!!active} pending={starting} pendingText="Starting…">
+                        <i className="fa-solid fa-flask mr-2" />Run self-test
                     </Button>
                 </div>
             </div>

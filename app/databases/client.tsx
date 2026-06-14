@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
     getDatabases, createDatabase, deleteDatabase,
     getDatabaseUsers, createDatabaseUser, deleteDatabaseUser,
@@ -15,7 +16,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { TableRowsSkeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/EmptyState';
+import { PageShell } from '@/components/PageShell';
+import { staggerContainer, staggerItem, listItem } from '@/lib/motion';
 
 // --- Constants ---
 
@@ -36,46 +42,6 @@ const PRIVILEGE_OPTIONS = [
 ];
 
 const DB_TYPE_OPTIONS = ['mysql'];
-
-// --- UI Components ---
-
-const RippleButton = ({ children, onClick, className = '', disabled = false, variant = 'primary' }: any) => {
-    const createRipple = (event: any) => {
-        const button = event.currentTarget;
-        const circle = document.createElement('span');
-        const diameter = Math.max(button.clientWidth, button.clientHeight);
-        const radius = diameter / 2;
-        const rect = button.getBoundingClientRect();
-        circle.style.width = circle.style.height = `${diameter}px`;
-        circle.style.left = `${event.clientX - rect.left - radius}px`;
-        circle.style.top = `${event.clientY - rect.top - radius}px`;
-        circle.classList.add('ripple');
-        const existing = button.getElementsByClassName('ripple')[0];
-        if (existing) existing.remove();
-        button.appendChild(circle);
-        if (onClick) onClick(event);
-    };
-
-    const baseStyle = "relative overflow-hidden transition-all duration-200 px-4 py-2 text-xs font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed";
-    const variants: any = {
-        primary: "bg-primary text-black hover:bg-primary/90",
-        danger: "bg-red-900/50 text-red-200 hover:bg-red-900/70 border border-red-700/50",
-        warning: "bg-yellow-900/50 text-yellow-200 hover:bg-yellow-900/70 border border-yellow-700/50",
-        outline: "bg-secondary text-foreground border border-border hover:bg-border",
-        ghost: "bg-transparent text-foreground border border-border hover:bg-secondary",
-        pma: "bg-orange-900/50 text-orange-200 hover:bg-orange-900/70 border border-orange-700/50",
-    };
-
-    return (
-        <button disabled={disabled} onClick={createRipple} className={`${baseStyle} ${variants[variant]} ${className}`}>
-            <span className="relative z-10">{children}</span>
-            <style jsx global>{`
-                span.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple 600ms linear; background-color: rgba(255, 255, 255, 0.3); pointer-events: none; }
-                @keyframes ripple { to { transform: scale(4); opacity: 0; } }
-            `}</style>
-        </button>
-    );
-};
 
 // --- Main Component ---
 
@@ -109,7 +75,6 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
     const [pmaDb, setPmaDb]                 = useState<any | null>(null);
     const [pmaUsers, setPmaUsers]           = useState<any[]>([]);
     const [pmaLoading, setPmaLoading]       = useState(false);
-    const pmaFormRef                        = useRef<HTMLFormElement>(null);
 
     // Restore
     const [restoreDb, setRestoreDb]         = useState<any | null>(null);
@@ -283,22 +248,20 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
 
     return (
         <TooltipProvider>
-        <div className="space-y-8 max-w-6xl pb-20">
-
-            {/* Header */}
-            <div className="pb-6 border-b border-border">
-                <h1 className="text-3xl font-bold text-foreground uppercase tracking-tight">Database Manager</h1>
-                <p className="text-sm text-muted-foreground mt-2 font-medium">Provision databases, manage users, assign access, and run backups</p>
-            </div>
+        <PageShell
+            title="Database Manager"
+            description="Provision databases, manage users, assign access, and run backups"
+            className="max-w-6xl pb-20"
+        >
 
             {/* Alerts */}
             {error && (
-                <Alert className="mb-4 bg-red-950/30 border-red-900/50 text-red-200 text-xs font-bold">
+                <Alert className="bg-red-950/30 border-red-900/50 text-red-200 text-xs font-bold">
                     <i className="fa-solid fa-triangle-exclamation mr-2"></i>{error}
                 </Alert>
             )}
             {successMsg && (
-                <Alert className="mb-4 bg-emerald-950/30 border-emerald-900/50 text-emerald-200 text-xs font-bold">
+                <Alert className="bg-emerald-950/30 border-emerald-900/50 text-emerald-200 text-xs font-bold">
                     <i className="fa-solid fa-circle-check mr-2"></i>{successMsg}
                 </Alert>
             )}
@@ -321,11 +284,14 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                 <TabsContent value="databases" className="mt-8 space-y-8">
 
                     {/* Create */}
-                    <Card className="p-6 border-border bg-card">
-                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">
-                            <i className="fa-solid fa-plus-circle mr-2 text-primary"></i>
-                            Provision New Database
-                        </h3>
+                    <Card className="rounded-sm border-border bg-card">
+                        <div className="flex items-center justify-between border-b border-border p-4">
+                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                <i className="fa-solid fa-plus-circle mr-2 text-primary"></i>
+                                Provision New Database
+                            </h3>
+                        </div>
+                        <div className="p-4 sm:p-6">
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                             <div className="md:col-span-2">
                                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Engine</label>
@@ -360,18 +326,21 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                                 )}
                             </div>
                             <div className="md:col-span-2">
-                                <RippleButton onClick={handleCreateDb}
-                                    disabled={!newDbName || !isValidDbName(newDbName) || !actorId || creating}
-                                    className="w-full h-10 flex items-center justify-center gap-2">
-                                    {creating ? <i className="fa-solid fa-spinner fa-spin" /> : 'Create'}
-                                </RippleButton>
+                                <Button ripple onClick={handleCreateDb}
+                                    disabled={!newDbName || !isValidDbName(newDbName) || !actorId}
+                                    pending={creating}
+                                    pendingText="Creating..."
+                                    className="w-full h-10">
+                                    Create
+                                </Button>
                             </div>
+                        </div>
                         </div>
                     </Card>
 
                     {/* Restore modal trigger row */}
                     {restoreDb && (
-                        <Card className="p-4 border-yellow-800/40 bg-yellow-950/10">
+                        <Card className="rounded-sm p-4 border-yellow-800/40 bg-yellow-950/10">
                             <p className="text-xs font-bold text-yellow-400 uppercase tracking-wider mb-3">
                                 <i className="fa-solid fa-rotate-left mr-2" />Restoring: {restoreDb.database_name}
                             </p>
@@ -381,22 +350,29 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                                         placeholder="/var/backups/nydus/mysql/db_20260101.dump"
                                         className="bg-background border-border font-mono text-xs focus:border-primary" />
                                 </div>
-                                <RippleButton variant="warning" onClick={handleRestore} disabled={!restorePath || restoreLoading}
-                                    className="h-10 flex items-center gap-2">
-                                    {restoreLoading ? <i className="fa-solid fa-spinner fa-spin" /> : 'Restore'}
-                                </RippleButton>
-                                <RippleButton variant="outline" onClick={() => { setRestoreDb(null); setRestorePath(''); }}
-                                    className="h-10">Cancel</RippleButton>
+                                <Button ripple variant="outline" tone="warning" onClick={handleRestore} disabled={!restorePath}
+                                    pending={restoreLoading} pendingText="Restoring..." className="h-10">
+                                    Restore
+                                </Button>
+                                <Button ripple variant="outline" onClick={() => { setRestoreDb(null); setRestorePath(''); }}
+                                    className="h-10">Cancel</Button>
                             </div>
                         </Card>
                     )}
 
                     {/* List */}
                     <div className="space-y-4">
-                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Active Databases</h3>
-                        <Card className="border-border bg-card overflow-hidden">
+                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Active Databases</h3>
+                        <Card className="rounded-sm border-border bg-card overflow-hidden">
                             {loading && databases.length === 0 ? (
-                                <div className="p-8 text-center text-muted-foreground text-sm">Loading databases...</div>
+                                <TableRowsSkeleton rows={5} cols={5} />
+                            ) : databases.length === 0 ? (
+                                <EmptyState
+                                    icon="fa-solid fa-database"
+                                    title="No databases provisioned yet"
+                                    hint="Provision a database above to get started."
+                                    className="border-0"
+                                />
                             ) : (
                                 <Table>
                                     <TableHeader className="bg-secondary border-b border-border">
@@ -408,9 +384,21 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                                             <TableHead className="font-bold text-foreground uppercase text-xs text-right pr-4">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
-                                    <TableBody>
+                                    <motion.tbody
+                                        className="[&_tr:last-child]:border-0"
+                                        variants={staggerContainer}
+                                        initial="hidden"
+                                        animate="show"
+                                    >
+                                        <AnimatePresence initial={false}>
                                         {databases.map((db: any) => (
-                                            <TableRow key={db.database_uuid} className="border-b border-border hover:bg-secondary/50 transition-colors">
+                                            <motion.tr
+                                                key={db.database_uuid}
+                                                layout
+                                                variants={listItem}
+                                                exit="exit"
+                                                className="border-b border-border hover:bg-secondary/50 transition-colors"
+                                            >
                                                 <TableCell className="font-mono text-sm font-semibold text-foreground">{db.database_name}</TableCell>
                                                 <TableCell>
                                                     <Badge variant="default" className="text-xs font-bold uppercase text-black">{db.database_type}</Badge>
@@ -429,11 +417,10 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <span>
-                                                                        <RippleButton variant="pma" onClick={() => handlePmaClick(db)}
-                                                                            disabled={usersForDatabase(db.database_uuid).length === 0}
-                                                                            className="px-2.5 py-1 text-[10px]">
+                                                                        <Button variant="outline" size="sm" onClick={() => handlePmaClick(db)}
+                                                                            disabled={usersForDatabase(db.database_uuid).length === 0}>
                                                                             <i className="fa-solid fa-table-cells" />
-                                                                        </RippleButton>
+                                                                        </Button>
                                                                     </span>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent side="top" className="text-[10px]">Open phpMyAdmin</TooltipContent>
@@ -442,11 +429,10 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
                                                                 <span>
-                                                                    <RippleButton variant="outline" onClick={() => handleBackup(db)}
-                                                                        disabled={busyKey === `bk-${db.database_uuid}`}
-                                                                        className="px-2.5 py-1 text-[10px]">
-                                                                        {busyKey === `bk-${db.database_uuid}` ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-cloud-arrow-up" />}
-                                                                    </RippleButton>
+                                                                    <Button variant="outline" size="sm" onClick={() => handleBackup(db)}
+                                                                        pending={busyKey === `bk-${db.database_uuid}`}>
+                                                                        <i className="fa-solid fa-cloud-arrow-up" />
+                                                                    </Button>
                                                                 </span>
                                                             </TooltipTrigger>
                                                             <TooltipContent side="top" className="text-[10px]">Backup</TooltipContent>
@@ -454,31 +440,24 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
                                                                 <span>
-                                                                    <RippleButton variant="outline" onClick={() => { setRestoreDb(db); setRestorePath(''); }}
-                                                                        className="px-2.5 py-1 text-[10px]">
+                                                                    <Button variant="outline" size="sm" onClick={() => { setRestoreDb(db); setRestorePath(''); }}>
                                                                         <i className="fa-solid fa-rotate-left" />
-                                                                    </RippleButton>
+                                                                    </Button>
                                                                 </span>
                                                             </TooltipTrigger>
                                                             <TooltipContent side="top" className="text-[10px]">Restore</TooltipContent>
                                                         </Tooltip>
-                                                        <RippleButton variant="danger" onClick={() => handleDeleteDb(db)}
-                                                            disabled={busyKey === `del-db-${db.database_uuid}`}
-                                                            className="px-2.5 py-1 text-[10px]">
-                                                            {busyKey === `del-db-${db.database_uuid}` ? <i className="fa-solid fa-spinner fa-spin" /> : 'Delete'}
-                                                        </RippleButton>
+                                                        <Button variant="destructive" size="sm" onClick={() => handleDeleteDb(db)}
+                                                            pending={busyKey === `del-db-${db.database_uuid}`}
+                                                            pendingText="Delete">
+                                                            Delete
+                                                        </Button>
                                                     </div>
                                                 </TableCell>
-                                            </TableRow>
+                                            </motion.tr>
                                         ))}
-                                        {databases.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={5} className="px-6 py-8 text-center text-muted-foreground italic">
-                                                    No databases provisioned yet.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
+                                        </AnimatePresence>
+                                    </motion.tbody>
                                 </Table>
                             )}
                         </Card>
@@ -489,11 +468,14 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                 <TabsContent value="users" className="mt-8 space-y-8">
 
                     {/* Create */}
-                    <Card className="p-6 border-border bg-card">
-                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">
-                            <i className="fa-solid fa-user-plus mr-2 text-primary"></i>
-                            Create Database User
-                        </h3>
+                    <Card className="rounded-sm border-border bg-card">
+                        <div className="flex items-center justify-between border-b border-border p-4">
+                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                <i className="fa-solid fa-user-plus mr-2 text-primary"></i>
+                                Create Database User
+                            </h3>
+                        </div>
+                        <div className="p-4 sm:p-6">
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                             <div className="md:col-span-2">
                                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Engine</label>
@@ -529,24 +511,34 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                                     className="bg-background border-border font-mono text-sm focus:border-primary" />
                             </div>
                             <div className="md:col-span-2">
-                                <RippleButton onClick={handleCreateUser}
-                                    disabled={!newUsername || !newPassword || !actorId || creatingUser || dbUsers.some((u: any) => u.username === newUsername)}
-                                    className="w-full h-10 flex items-center justify-center gap-2">
-                                    {creatingUser ? <i className="fa-solid fa-spinner fa-spin" /> : 'Create'}
-                                </RippleButton>
+                                <Button ripple onClick={handleCreateUser}
+                                    disabled={!newUsername || !newPassword || !actorId || dbUsers.some((u: any) => u.username === newUsername)}
+                                    pending={creatingUser}
+                                    pendingText="Creating..."
+                                    className="w-full h-10">
+                                    Create
+                                </Button>
                             </div>
                         </div>
                         <p className="text-xs text-muted-foreground mt-4 border-l-2 border-border pl-3">
                             After creating a user, head to the <strong className="text-foreground">Assignments</strong> tab to attach them to a database.
                         </p>
+                        </div>
                     </Card>
 
                     {/* List */}
                     <div className="space-y-4">
-                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">All Database Users</h3>
-                        <Card className="border-border bg-card overflow-hidden">
-                            {loading ? (
-                                <div className="p-8 text-center text-muted-foreground text-sm">Loading users...</div>
+                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">All Database Users</h3>
+                        <Card className="rounded-sm border-border bg-card overflow-hidden">
+                            {loading && dbUsers.length === 0 ? (
+                                <TableRowsSkeleton rows={5} cols={4} />
+                            ) : dbUsers.length === 0 ? (
+                                <EmptyState
+                                    icon="fa-solid fa-users"
+                                    title="No database users found"
+                                    hint="Create a user above to get started."
+                                    className="border-0"
+                                />
                             ) : (
                                 <Table>
                                     <TableHeader className="bg-secondary border-b border-border">
@@ -557,11 +549,23 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                                             <TableHead className="font-bold text-foreground uppercase text-xs text-right pr-4">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
-                                    <TableBody>
+                                    <motion.tbody
+                                        className="[&_tr:last-child]:border-0"
+                                        variants={staggerContainer}
+                                        initial="hidden"
+                                        animate="show"
+                                    >
+                                        <AnimatePresence initial={false}>
                                         {dbUsers.map((u: any) => {
                                             const count = dbCountForUser(u.user_uuid);
                                             return (
-                                                <TableRow key={u.user_uuid} className="border-b border-border hover:bg-secondary/50 transition-colors">
+                                                <motion.tr
+                                                    key={u.user_uuid}
+                                                    layout
+                                                    variants={listItem}
+                                                    exit="exit"
+                                                    className="border-b border-border hover:bg-secondary/50 transition-colors"
+                                                >
                                                     <TableCell className="font-mono text-sm font-semibold text-foreground">{u.username}</TableCell>
                                                     <TableCell className="font-mono text-xs text-muted-foreground hidden md:table-cell">{u.user_uuid}</TableCell>
                                                     <TableCell className="font-mono text-xs text-muted-foreground hidden md:table-cell">
@@ -582,24 +586,18 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                                                                     {count > 0 ? `Attached to ${count} database${count > 1 ? 's' : ''}` : 'Not attached to any database'}
                                                                 </TooltipContent>
                                                             </Tooltip>
-                                                            <RippleButton variant="danger" onClick={() => handleDeleteUser(u)}
-                                                                disabled={busyKey === `del-u-${u.user_uuid}`}
-                                                                className="px-2.5 py-1 text-[10px]">
-                                                                {busyKey === `del-u-${u.user_uuid}` ? <i className="fa-solid fa-spinner fa-spin" /> : 'Delete'}
-                                                            </RippleButton>
+                                                            <Button variant="destructive" size="sm" onClick={() => handleDeleteUser(u)}
+                                                                pending={busyKey === `del-u-${u.user_uuid}`}
+                                                                pendingText="Delete">
+                                                                Delete
+                                                            </Button>
                                                         </div>
                                                     </TableCell>
-                                                </TableRow>
+                                                </motion.tr>
                                             );
                                         })}
-                                        {dbUsers.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={4} className="px-6 py-8 text-center text-muted-foreground italic">
-                                                    No database users found.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
+                                        </AnimatePresence>
+                                    </motion.tbody>
                                 </Table>
                             )}
                         </Card>
@@ -609,7 +607,7 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                 {/* ==================== ASSIGNMENTS TAB ==================== */}
                 <TabsContent value="assignments" className="mt-8">
                     <div className="mb-6">
-                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-1">
+                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
                             <i className="fa-solid fa-link mr-2 text-primary"></i>
                             Assign Users to Databases
                         </h3>
@@ -618,7 +616,7 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
 
                     {/* Pending assignment confirmation */}
                     {pendingAssign && (
-                        <Card className="p-4 mb-6 border-primary/40 bg-primary/5">
+                        <Card className="rounded-sm p-4 mb-6 border-primary/40 bg-primary/5">
                             <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
                                 <i className="fa-solid fa-arrow-right mr-2 text-primary" />
                                 Assign <span className="text-primary font-mono">{pendingAssign.user.username}</span> to <span className="text-primary font-mono">{pendingAssign.db.database_name}</span>
@@ -628,11 +626,10 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                                     className="bg-secondary border border-border text-foreground text-xs font-mono p-2 outline-none focus:border-primary transition-all flex-1 max-w-xs">
                                     {PRIVILEGE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
                                 </select>
-                                <RippleButton onClick={handleConfirmAssign} disabled={assigning}
-                                    className="h-9 flex items-center gap-2 px-5">
-                                    {assigning ? <i className="fa-solid fa-spinner fa-spin" /> : <><i className="fa-solid fa-check" />Confirm</>}
-                                </RippleButton>
-                                <RippleButton variant="outline" onClick={() => setPendingAssign(null)} className="h-9">Cancel</RippleButton>
+                                <Button onClick={handleConfirmAssign} pending={assigning} pendingText="Confirm">
+                                    <i className="fa-solid fa-check" />Confirm
+                                </Button>
+                                <Button variant="outline" onClick={() => setPendingAssign(null)}>Cancel</Button>
                             </div>
                         </Card>
                     )}
@@ -672,75 +669,93 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                         </div>
 
                         {/* Right: Databases (80%) */}
-                        <div className="flex-1 space-y-3">
-                            {databases.length === 0 && (
-                                <div className="border border-dashed border-border p-12 text-center text-muted-foreground text-sm italic">
-                                    No databases provisioned yet.
-                                </div>
-                            )}
-                            {databases.map((db: any) => {
-                                const attached = usersForDatabase(db.database_uuid);
-                                const isOver = dragOverDb === db.database_uuid;
-                                return (
-                                    <div
-                                        key={db.database_uuid}
-                                        onDragOver={(e) => { e.preventDefault(); setDragOverDb(db.database_uuid); }}
-                                        onDragLeave={() => setDragOverDb(null)}
-                                        onDrop={() => handleDrop(db)}
-                                        className={`
-                                            border bg-card transition-all duration-150
-                                            ${isOver
-                                                ? 'border-primary border-dashed bg-primary/5 shadow-[0_0_0_1px_hsl(var(--primary)/0.3)]'
-                                                : 'border-border'}
-                                        `}
-                                    >
-                                        {/* Database header */}
-                                        <div className={`px-4 py-3 border-b flex items-center justify-between transition-colors ${isOver ? 'border-primary/30 bg-primary/5' : 'border-border bg-secondary/40'}`}>
-                                            <div className="flex items-center gap-3">
-                                                <Badge variant="default" className="text-[10px] font-bold uppercase text-black shrink-0">{db.database_type}</Badge>
-                                                <span className="font-mono text-sm font-bold text-foreground">{db.database_name}</span>
-                                                {db.allowed_hosts === '*' || db.allowed_hosts === '%'
-                                                    ? <Badge variant="outline" className="text-[10px] text-yellow-500 border-yellow-800/50"><i className="fa-solid fa-earth-americas mr-1" />All Hosts</Badge>
-                                                    : <span className="text-[10px] text-muted-foreground font-mono">{db.allowed_hosts}</span>
-                                                }
+                        <div className="flex-1">
+                            {databases.length === 0 ? (
+                                <EmptyState
+                                    icon="fa-solid fa-database"
+                                    title="No databases provisioned yet"
+                                    hint="Provision a database first, then drag users here to assign access."
+                                />
+                            ) : (
+                                <motion.div
+                                    className="space-y-3"
+                                    variants={staggerContainer}
+                                    initial="hidden"
+                                    animate="show"
+                                >
+                                {databases.map((db: any) => {
+                                    const attached = usersForDatabase(db.database_uuid);
+                                    const isOver = dragOverDb === db.database_uuid;
+                                    return (
+                                        <motion.div
+                                            key={db.database_uuid}
+                                            variants={staggerItem}
+                                            onDragOver={(e) => { e.preventDefault(); setDragOverDb(db.database_uuid); }}
+                                            onDragLeave={() => setDragOverDb(null)}
+                                            onDrop={() => handleDrop(db)}
+                                            className={`
+                                                border bg-card transition-all duration-150
+                                                ${isOver
+                                                    ? 'border-primary border-dashed bg-primary/5 shadow-[0_0_0_1px_hsl(var(--primary)/0.3)]'
+                                                    : 'border-border'}
+                                            `}
+                                        >
+                                            {/* Database header */}
+                                            <div className={`px-4 py-3 border-b flex items-center justify-between transition-colors ${isOver ? 'border-primary/30 bg-primary/5' : 'border-border bg-secondary/40'}`}>
+                                                <div className="flex items-center gap-3">
+                                                    <Badge variant="default" className="text-[10px] font-bold uppercase text-black shrink-0">{db.database_type}</Badge>
+                                                    <span className="font-mono text-sm font-bold text-foreground">{db.database_name}</span>
+                                                    {db.allowed_hosts === '*' || db.allowed_hosts === '%'
+                                                        ? <Badge variant="outline" className="text-[10px] text-yellow-500 border-yellow-800/50"><i className="fa-solid fa-earth-americas mr-1" />All Hosts</Badge>
+                                                        : <span className="text-[10px] text-muted-foreground font-mono">{db.allowed_hosts}</span>
+                                                    }
+                                                </div>
+                                                {isOver && dragUser && (
+                                                    <span className="text-[10px] text-primary font-bold animate-pulse">
+                                                        <i className="fa-solid fa-arrow-down mr-1" />Drop to assign {dragUser.username}
+                                                    </span>
+                                                )}
                                             </div>
-                                            {isOver && dragUser && (
-                                                <span className="text-[10px] text-primary font-bold animate-pulse">
-                                                    <i className="fa-solid fa-arrow-down mr-1" />Drop to assign {dragUser.username}
-                                                </span>
-                                            )}
-                                        </div>
 
-                                        {/* Attached users */}
-                                        <div className="px-4 py-3 min-h-[52px] flex flex-wrap gap-2 items-center">
-                                            {attached.length === 0 && !isOver && (
-                                                <span className="text-xs text-muted-foreground/50 italic">No users assigned — drag one here</span>
-                                            )}
-                                            {attached.map((p: any) => (
-                                                <div key={p.user_uuid}
-                                                    className="flex items-center gap-1.5 bg-secondary border border-border px-2.5 py-1 text-xs font-mono group/chip">
-                                                    <span className="text-foreground">{p.username}</span>
-                                                    <span className="text-muted-foreground/50 text-[10px]">{p.privileges}</span>
-                                                    <button
-                                                        onClick={() => handleRevokeAssignment(db.database_uuid, db.database_name, db.database_type, p.user_uuid, p.username)}
-                                                        disabled={busyKey === `rev-${db.database_uuid}-${p.user_uuid}`}
-                                                        className="text-muted-foreground hover:text-red-400 transition-colors ml-1 disabled:opacity-50"
-                                                    >
-                                                        {busyKey === `rev-${db.database_uuid}-${p.user_uuid}`
-                                                            ? <i className="fa-solid fa-spinner fa-spin text-[10px]" />
-                                                            : <i className="fa-solid fa-xmark text-[10px]" />}
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            {isOver && dragUser && !isUserAttached(db.database_uuid, dragUser.user_uuid) && (
-                                                <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/40 border-dashed px-2.5 py-1 text-xs font-mono text-primary animate-pulse">
-                                                    <i className="fa-solid fa-plus text-[10px]" />{dragUser.username}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                            {/* Attached users */}
+                                            <div className="px-4 py-3 min-h-[52px] flex flex-wrap gap-2 items-center">
+                                                {attached.length === 0 && !isOver && (
+                                                    <span className="text-xs text-muted-foreground/50 italic">No users assigned — drag one here</span>
+                                                )}
+                                                <AnimatePresence initial={false}>
+                                                {attached.map((p: any) => (
+                                                    <motion.div key={p.user_uuid}
+                                                        layout
+                                                        variants={listItem}
+                                                        initial="hidden"
+                                                        animate="show"
+                                                        exit="exit"
+                                                        className="flex items-center gap-1.5 bg-secondary border border-border px-2.5 py-1 text-xs font-mono group/chip">
+                                                        <span className="text-foreground">{p.username}</span>
+                                                        <span className="text-muted-foreground/50 text-[10px]">{p.privileges}</span>
+                                                        <button
+                                                            onClick={() => handleRevokeAssignment(db.database_uuid, db.database_name, db.database_type, p.user_uuid, p.username)}
+                                                            disabled={busyKey === `rev-${db.database_uuid}-${p.user_uuid}`}
+                                                            className="text-muted-foreground hover:text-red-400 transition-colors ml-1 disabled:opacity-50"
+                                                        >
+                                                            {busyKey === `rev-${db.database_uuid}-${p.user_uuid}`
+                                                                ? <i className="fa-solid fa-spinner fa-spin text-[10px]" />
+                                                                : <i className="fa-solid fa-xmark text-[10px]" />}
+                                                        </button>
+                                                    </motion.div>
+                                                ))}
+                                                </AnimatePresence>
+                                                {isOver && dragUser && !isUserAttached(db.database_uuid, dragUser.user_uuid) && (
+                                                    <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/40 border-dashed px-2.5 py-1 text-xs font-mono text-primary animate-pulse">
+                                                        <i className="fa-solid fa-plus text-[10px]" />{dragUser.username}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })}
+                                </motion.div>
+                            )}
                         </div>
                     </div>
                 </TabsContent>
@@ -777,7 +792,7 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                 </DialogContent>
             </Dialog>
 
-        </div>
+        </PageShell>
         </TooltipProvider>
     );
 }

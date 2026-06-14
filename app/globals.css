@@ -117,6 +117,21 @@
     animation: clickScale 0.2s ease-in-out;
 }
 
+/* Material ripple for <Button ripple>. Appended as a child span, clipped by the
+ * button's own overflow-hidden. Defined once here instead of per-component. */
+span.ripple {
+    position: absolute;
+    border-radius: 50%;
+    transform: scale(0);
+    animation: ripple 600ms linear;
+    background-color: rgba(255, 255, 255, 0.3);
+    pointer-events: none;
+}
+
+@keyframes ripple {
+    to { transform: scale(4); opacity: 0; }
+}
+
 ::-webkit-scrollbar {
   width: 4px;
   height: 8px;

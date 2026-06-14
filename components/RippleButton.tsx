@@ -1,39 +1,31 @@
-'use client'
+'use client';
 
-export const RippleButton = ({ children, onClick, className = '', disabled = false, variant = 'primary' }: any) => {
-    const createRipple = (event: any) => {
-        const button = event.currentTarget
-        const circle = document.createElement('span')
-        const diameter = Math.max(button.clientWidth, button.clientHeight)
-        const radius = diameter / 2
-        const rect = button.getBoundingClientRect()
-        circle.style.width = circle.style.height = `${diameter}px`
-        circle.style.left = `${event.clientX - rect.left - radius}px`
-        circle.style.top = `${event.clientY - rect.top - radius}px`
-        circle.classList.add('ripple')
-        const existing = button.getElementsByClassName('ripple')[0]
-        if (existing) existing.remove()
-        button.appendChild(circle)
-        if (onClick) onClick(event)
-    }
+import { Button, type ButtonProps } from '@/components/ui/button';
 
-    const baseStyle = "relative overflow-hidden transition-all duration-200 px-4 py-2 text-xs font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
-    const variants: any = {
-        primary: "bg-primary text-black hover:bg-primary/90",
-        danger: "bg-red-900/50 text-red-200 hover:bg-red-900/70 border border-red-700/50",
-        warning: "bg-yellow-900/50 text-yellow-200 hover:bg-yellow-900/70 border border-yellow-700/50",
-        outline: "bg-secondary text-foreground border border-border hover:bg-border",
-        ghost: "bg-transparent text-foreground border border-border hover:bg-secondary",
-        pma: "bg-orange-900/50 text-orange-200 hover:bg-orange-900/70 border border-orange-700/50",
-    }
+// Maps the old RippleButton variant names onto the unified Button's variants.
+const VARIANT_MAP = {
+    primary: 'default',
+    danger: 'destructive',
+    warning: 'outline',
+    outline: 'outline',
+    ghost: 'ghost',
+    pma: 'secondary',
+} as const satisfies Record<string, ButtonProps['variant']>;
 
+/**
+ * @deprecated Use `<Button ripple>` from '@/components/ui/button' directly.
+ * Kept as a thin backward-compatible shim (no current importers) that maps the
+ * old variant names onto the unified Button. Ripple + pill styling now live in
+ * the shared Button.
+ */
+export function RippleButton({
+    variant = 'primary',
+    children,
+    ...props
+}: Omit<ButtonProps, 'variant' | 'ripple'> & { variant?: keyof typeof VARIANT_MAP }) {
     return (
-        <button disabled={disabled} onClick={createRipple} className={`${baseStyle} ${variants[variant]} ${className}`}>
-            <span className="relative z-10">{children}</span>
-            <style jsx global>{`
-                span.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple 600ms linear; background-color: rgba(255, 255, 255, 0.3); pointer-events: none; }
-                @keyframes ripple { to { transform: scale(4); opacity: 0; } }
-            `}</style>
-        </button>
-    )
+        <Button ripple variant={VARIANT_MAP[variant]} {...props}>
+            {children}
+        </Button>
+    );
 }

@@ -56,22 +56,18 @@ export default function DashboardPage() {
             description="Live server overview — deployments, services, and traffic at a glance."
             meta={<StatusChip label={online ? 'live' : 'offline'} state={online ? 'ok' : 'unknown'} pulse={online} />}
         >
-            <SystemStatsRow system={overview?.system ?? null} />
+            <SystemStatsRow system={overview?.system ?? null} loading={loading && !overview} />
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <div className="space-y-6 lg:col-span-2">
-                    <DeploymentHealthGrid deployments={deployments} />
+                    <DeploymentHealthGrid deployments={deployments} loading={loading && !overview} />
                     <CloudflareCondensed />
                 </div>
                 <div className="space-y-6">
-                    <RecentAlertsCard alerts={alerts} onAck={handleAck} />
-                    <ServicesStatusCard services={services} />
+                    <RecentAlertsCard alerts={alerts} onAck={handleAck} loading={loading && !overview} />
+                    <ServicesStatusCard services={services} loading={loading && !overview} />
                 </div>
             </div>
-
-            {loading && !overview && (
-                <p className="text-center text-xs text-muted-foreground">Loading overview…</p>
-            )}
         </PageShell>
     );
 }

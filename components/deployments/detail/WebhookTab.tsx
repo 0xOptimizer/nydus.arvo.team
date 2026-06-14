@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getWebhook, createWebhook, deleteWebhook } from '@/app/actions/deployment-control';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CardSkeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { cn } from '@/lib/utils';
 
@@ -61,7 +62,7 @@ export function WebhookTab({ deploymentUuid }: { deploymentUuid: string }) {
         setBusy(false);
     };
 
-    if (loading) return <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>;
+    if (loading && !webhook) return <CardSkeleton rows={4} className="border-0" />;
 
     if (!webhook) {
         return (
@@ -72,8 +73,8 @@ export function WebhookTab({ deploymentUuid }: { deploymentUuid: string }) {
                     title="No webhook configured"
                     hint="Create a webhook so pushes to your branch rebuild this deployment automatically."
                     action={
-                        <Button onClick={handleCreate} disabled={busy}>
-                            {busy ? <><i className="fa-solid fa-spinner fa-spin mr-2" />Creating…</> : 'Create webhook'}
+                        <Button onClick={handleCreate} pending={busy} pendingText="Creating…">
+                            Create webhook
                         </Button>
                     }
                 />
@@ -133,8 +134,8 @@ export function WebhookTab({ deploymentUuid }: { deploymentUuid: string }) {
             )}
 
             <div className="pt-1">
-                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={handleDelete} disabled={busy}>
-                    {busy ? <i className="fa-solid fa-spinner fa-spin" /> : <><i className="fa-solid fa-trash mr-2" />Delete webhook</>}
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={handleDelete} pending={busy} pendingText="Deleting…">
+                    <i className="fa-solid fa-trash mr-2" />Delete webhook
                 </Button>
             </div>
         </div>

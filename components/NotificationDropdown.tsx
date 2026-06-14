@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { AlertRow, type AlertItem } from "@/components/AlertRow"
+import { ListSkeleton } from "@/components/ui/skeleton"
 import { staggerContainer } from "@/lib/motion"
 import { getAlerts, getAlertCount, ackAlert, ackAllAlerts } from "@/app/actions/alerts"
 
@@ -90,8 +91,8 @@ export default function NotificationDropdown() {
         <DropdownMenuSeparator className="bg-border" />
 
         <div className="max-h-96 overflow-y-auto">
-          {loading ? (
-            <div className="px-3 py-8 text-center text-xs text-muted-foreground">Loading…</div>
+          {loading && alerts.length === 0 ? (
+            <ListSkeleton rows={4} />
           ) : alerts.length === 0 ? (
             <div className="px-3 py-8 text-center text-xs text-muted-foreground">
               <i className="fa-solid fa-check-double mb-2 block text-lg text-muted-foreground/50" />
@@ -99,9 +100,11 @@ export default function NotificationDropdown() {
             </div>
           ) : (
             <motion.div variants={staggerContainer} initial="hidden" animate="show">
-              {alerts.map(a => (
-                <AlertRow key={a.alert_uuid} alert={a} onAck={handleAck} />
-              ))}
+              <AnimatePresence initial={false}>
+                {alerts.map(a => (
+                  <AlertRow key={a.alert_uuid} alert={a} onAck={handleAck} />
+                ))}
+              </AnimatePresence>
             </motion.div>
           )}
         </div>

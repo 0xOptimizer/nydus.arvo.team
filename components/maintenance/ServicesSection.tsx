@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { getServices } from '@/app/actions/services';
 import { ServiceCard } from '@/components/maintenance/ServiceCard';
 import { AddServiceDialog } from '@/components/maintenance/ServiceDialog';
 import { RecoverAllButton } from '@/components/maintenance/RecoverAllButton';
 import { EmptyState } from '@/components/EmptyState';
-import { staggerContainer, staggerItem } from '@/lib/motion';
+import { ListSkeleton } from '@/components/ui/skeleton';
+import { staggerContainer, listItem } from '@/lib/motion';
 
 export function ServicesSection() {
     const [services, setServices] = useState<any[]>([]);
@@ -36,8 +37,10 @@ export function ServicesSection() {
                 </div>
             </div>
 
-            {loading ? (
-                <div className="p-8 text-center text-sm text-muted-foreground">Loading services…</div>
+            {loading && services.length === 0 ? (
+                <div className="rounded-sm border border-border bg-card">
+                    <ListSkeleton rows={4} />
+                </div>
             ) : services.length === 0 ? (
                 <EmptyState
                     icon="fa-solid fa-server"
@@ -51,11 +54,20 @@ export function ServicesSection() {
                     animate="show"
                     className="grid grid-cols-1 gap-4 lg:grid-cols-2"
                 >
-                    {services.map(svc => (
-                        <motion.div key={svc.service_uuid} variants={staggerItem}>
-                            <ServiceCard service={svc} onChanged={refresh} />
-                        </motion.div>
-                    ))}
+                    <AnimatePresence initial={false}>
+                        {services.map(svc => (
+                            <motion.div
+                                key={svc.service_uuid}
+                                variants={listItem}
+                                initial="hidden"
+                                animate="show"
+                                exit="exit"
+                                layout
+                            >
+                                <ServiceCard service={svc} onChanged={refresh} />
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
                 </motion.div>
             )}
         </div>

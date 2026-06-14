@@ -4,10 +4,12 @@ import Link from 'next/link';
 import { motion } from 'motion/react';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/EmptyState';
+import { ListSkeleton } from '@/components/ui/skeleton';
 import { staggerContainer, staggerItem } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
-export function ServicesStatusCard({ services }: { services: any[] }) {
+export function ServicesStatusCard({ services, loading }: { services: any[]; loading?: boolean }) {
+    const isLoading = loading && services.length === 0;
     return (
         <div className="rounded-sm border border-border bg-card">
             <div className="flex items-center justify-between border-b border-border p-4">
@@ -19,7 +21,9 @@ export function ServicesStatusCard({ services }: { services: any[] }) {
                 </Link>
             </div>
 
-            {services.length === 0 ? (
+            {isLoading ? (
+                <ListSkeleton rows={4} />
+            ) : services.length === 0 ? (
                 <div className="p-4">
                     <EmptyState
                         icon="fa-solid fa-server"

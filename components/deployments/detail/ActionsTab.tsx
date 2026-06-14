@@ -28,19 +28,20 @@ function ActionGroup({
 }) {
     return (
         <div className="rounded-sm border border-border bg-card p-4">
-            <h4 className="text-sm font-medium">{title}</h4>
-            <p className="mt-0.5 text-xs text-muted-foreground">{disabled && disabledNote ? disabledNote : description}</p>
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{title}</h4>
+            <p className="mt-1 text-xs text-muted-foreground">{disabled && disabledNote ? disabledNote : description}</p>
             <div className="mt-3 flex flex-wrap gap-2">
                 {actions.map(a => (
                     <Button
                         key={a.key}
                         variant="outline"
                         size="sm"
-                        disabled={disabled || busyKey === a.key}
+                        disabled={disabled}
+                        pending={busyKey === a.key}
                         className={a.danger ? 'text-destructive hover:text-destructive' : ''}
                         onClick={() => onRun(a.key, a.fn, a.confirm)}
                     >
-                        {busyKey === a.key ? <i className="fa-solid fa-spinner fa-spin" /> : a.label}
+                        {a.label}
                     </Button>
                 ))}
             </div>
@@ -122,8 +123,8 @@ export function ActionsTab({ deploymentUuid, stack, dnsMode }: { deploymentUuid:
                 />
                 {isExternal ? (
                     <div className="rounded-sm border border-border bg-card p-4">
-                        <h4 className="text-sm font-medium">DNS</h4>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">DNS</h4>
+                        <p className="mt-1 text-xs text-muted-foreground">
                             DNS is client-managed for external domains — nydus doesn’t reconcile it.
                         </p>
                     </div>
@@ -140,7 +141,7 @@ export function ActionsTab({ deploymentUuid, stack, dnsMode }: { deploymentUuid:
 
             {config && (config.nginx_config || config.package_scripts) && (
                 <div className="rounded-sm border border-border bg-card p-4">
-                    <h4 className="text-sm font-medium">Configuration</h4>
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Configuration</h4>
                     {config.package_scripts && (
                         <div className="mt-2">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">package scripts</p>

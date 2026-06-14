@@ -1,11 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { StatRowSkeleton, TableRowsSkeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/EmptyState'
+import { PageShell } from '@/components/PageShell'
+import { AnimatedNumber } from '@/components/AnimatedNumber'
+import { staggerContainer, listItem } from '@/lib/motion'
 import { getAllSchedules, toggleSchedule, forceRunSchedule } from '@/app/actions/databases'
 
 type Schedule = {
@@ -102,7 +108,7 @@ export default function SchedulesTab() {
     const backupActive = schedules.filter(s => s.task_type === 'db_backup' && s.enabled).length
 
     return (
-        <div className="space-y-4">
+        <PageShell title="Schedules" description="Manage automated backup and validity schedules.">
             {error && (
                 <Alert variant="destructive">
                     <AlertDescription>{error}</AlertDescription>
@@ -114,20 +120,24 @@ export default function SchedulesTab() {
                 </Alert>
             )}
 
-            <div className="grid grid-cols-3 gap-4">
-                <div className="border border-border rounded-sm bg-card p-4">
-                    <p className="text-xs text-muted-foreground">Total Schedules</p>
-                    <p className="text-2xl font-semibold tabular-nums mt-1">{schedules.length}</p>
+            {loading && schedules.length === 0 ? (
+                <StatRowSkeleton count={3} />
+            ) : (
+                <div className="grid grid-cols-3 gap-4">
+                    <div className="rounded-sm border border-border bg-card p-4">
+                        <p className="text-xs text-muted-foreground">Total Schedules</p>
+                        <AnimatedNumber value={schedules.length} className="text-2xl font-semibold mt-1 block" />
+                    </div>
+                    <div className="rounded-sm border border-border bg-card p-4">
+                        <p className="text-xs text-muted-foreground">Active</p>
+                        <AnimatedNumber value={activeCount} className="text-2xl font-semibold mt-1 block" />
+                    </div>
+                    <div className="rounded-sm border border-border bg-card p-4">
+                        <p className="text-xs text-muted-foreground">Active Backup Schedules</p>
+                        <AnimatedNumber value={backupActive} className="text-2xl font-semibold mt-1 block" />
+                    </div>
                 </div>
-                <div className="border border-border rounded-sm bg-card p-4">
-                    <p className="text-xs text-muted-foreground">Active</p>
-                    <p className="text-2xl font-semibold tabular-nums mt-1">{activeCount}</p>
-                </div>
-                <div className="border border-border rounded-sm bg-card p-4">
-                    <p className="text-xs text-muted-foreground">Active Backup Schedules</p>
-                    <p className="text-2xl font-semibold tabular-nums mt-1">{backupActive}</p>
-                </div>
-            </div>
+            )}
 
             <div className="flex items-center justify-between gap-3">
                 <Input
@@ -136,91 +146,102 @@ export default function SchedulesTab() {
                     placeholder="Filter by database name..."
                     className="max-w-sm text-sm"
                 />
-                <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-                    <i className={`fa-solid fa-rotate-right mr-2 ${loading ? 'fa-spin' : ''}`} />
+                <Button variant="outline" size="sm" onClick={load} pending={loading} pendingText="Refresh">
+                    <i className="fa-solid fa-rotate-right mr-2" />
                     Refresh
                 </Button>
             </div>
 
-            <div className="border border-border rounded-sm bg-card overflow-hidden">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Database</TableHead>
-                            <TableHead>Phase</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Interval</TableHead>
-                            <TableHead>Next Run</TableHead>
-                            <TableHead className="w-16 text-center">Active</TableHead>
-                            <TableHead className="text-right pr-4">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loading && filtered.length === 0 ? (
+            <div className="overflow-hidden rounded-sm border border-border bg-card">
+                {loading && filtered.length === 0 ? (
+                    <TableRowsSkeleton rows={6} cols={7} />
+                ) : filtered.length === 0 ? (
+                    <EmptyState
+                        icon="fa-solid fa-clock-rotate-left"
+                        title="No schedules found"
+                        hint={filter.trim() ? 'No schedules match your filter.' : 'Schedules are created automatically when databases are provisioned.'}
+                        className="border-0"
+                    />
+                ) : (
+                    <Table>
+                        <TableHeader>
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center py-10 text-sm text-muted-foreground">
-                                    Loading...
-                                </TableCell>
+                                <TableHead>Database</TableHead>
+                                <TableHead>Phase</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Interval</TableHead>
+                                <TableHead>Next Run</TableHead>
+                                <TableHead className="w-16 text-center">Active</TableHead>
+                                <TableHead className="text-right pr-4">Actions</TableHead>
                             </TableRow>
-                        ) : filtered.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-10 text-sm text-muted-foreground">
-                                    No schedules found.
-                                </TableCell>
-                            </TableRow>
-                        ) : filtered.map(s => (
-                            <TableRow key={s.schedule_uuid}>
-                                <TableCell className="font-mono text-xs py-2.5 max-w-[130px] truncate">
-                                    {s.database_name}
-                                </TableCell>
-                                <TableCell className="text-xs py-2.5">
-                                    {PHASE_LABELS[s.phase] ?? s.phase}
-                                </TableCell>
-                                <TableCell className="py-2.5">
-                                    <Badge variant="secondary" className="text-xs font-normal">
-                                        {s.task_type === 'db_backup' ? 'Backup' : 'Validity'}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="text-xs py-2.5 tabular-nums">
-                                    {formatInterval(s.interval_seconds)}
-                                </TableCell>
-                                <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
-                                    {formatDate(s.next_run_at)}
-                                </TableCell>
-                                <TableCell className="py-2.5 text-center">
-                                    <span className={`inline-block w-2 h-2 rounded-full ${s.enabled ? 'bg-green-500' : 'bg-border'}`} />
-                                </TableCell>
-                                <TableCell className="text-right pr-4 py-2.5">
-                                    <div className="flex justify-end gap-1">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 px-2.5 text-xs"
-                                            disabled={!!busyKey}
-                                            onClick={() => handleRun(s)}
-                                        >
-                                            {busyKey === `run-${s.schedule_uuid}`
-                                                ? <i className="fa-solid fa-spinner fa-spin" />
-                                                : 'Run'}
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 px-2.5 text-xs"
-                                            disabled={!!busyKey}
-                                            onClick={() => handleToggle(s)}
-                                        >
-                                            {busyKey === `toggle-${s.schedule_uuid}`
-                                                ? <i className="fa-solid fa-spinner fa-spin" />
-                                                : s.enabled ? 'Disable' : 'Enable'}
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <motion.tbody
+                            className="[&_tr:last-child]:border-0"
+                            variants={staggerContainer}
+                            initial="hidden"
+                            animate="show"
+                        >
+                            <AnimatePresence initial={false}>
+                                {filtered.map(s => (
+                                    <motion.tr
+                                        key={s.schedule_uuid}
+                                        layout
+                                        variants={listItem}
+                                        exit="exit"
+                                        className="border-b border-border transition-colors hover:bg-secondary/50"
+                                    >
+                                        <TableCell className="font-mono text-xs py-2.5 max-w-[130px] truncate">
+                                            {s.database_name}
+                                        </TableCell>
+                                        <TableCell className="text-xs py-2.5">
+                                            {PHASE_LABELS[s.phase] ?? s.phase}
+                                        </TableCell>
+                                        <TableCell className="py-2.5">
+                                            <Badge variant="secondary" className="text-xs font-normal">
+                                                {s.task_type === 'db_backup' ? 'Backup' : 'Validity'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-xs py-2.5 tabular-nums font-mono">
+                                            {formatInterval(s.interval_seconds)}
+                                        </TableCell>
+                                        <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
+                                            {formatDate(s.next_run_at)}
+                                        </TableCell>
+                                        <TableCell className="py-2.5 text-center">
+                                            <span className={`inline-block w-2 h-2 rounded-full ${s.enabled ? 'bg-green-500' : 'bg-border'}`} />
+                                        </TableCell>
+                                        <TableCell className="text-right pr-4 py-2.5">
+                                            <div className="flex justify-end gap-1">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    disabled={!!busyKey}
+                                                    pending={busyKey === `run-${s.schedule_uuid}`}
+                                                    pendingText="Run"
+                                                    onClick={() => handleRun(s)}
+                                                >
+                                                    Run
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    tone={s.enabled ? 'active' : 'inactive'}
+                                                    disabled={!!busyKey}
+                                                    pending={busyKey === `toggle-${s.schedule_uuid}`}
+                                                    pendingText={s.enabled ? 'Disable' : 'Enable'}
+                                                    onClick={() => handleToggle(s)}
+                                                >
+                                                    {s.enabled ? 'Disable' : 'Enable'}
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </motion.tr>
+                                ))}
+                            </AnimatePresence>
+                        </motion.tbody>
+                    </Table>
+                )}
             </div>
-        </div>
+        </PageShell>
     )
 }

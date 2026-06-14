@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { getProjects } from '@/app/actions/projects';
 import { getDNSRecords, createSubdomainRecord, deleteDNSRecord } from '@/app/actions/cloudflare';
 import { Button } from '@/components/ui/button';
@@ -8,46 +9,18 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
-import { Select } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableRowsSkeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/EmptyState';
 import { PageShell } from '@/components/PageShell';
-
-// --- UI Components ---
-
-const RippleButton = ({ children, onClick, className, disabled, variant = 'primary' }: any) => {
-    const createRipple = (event: any) => {
-        const button = event.currentTarget;
-        const circle = document.createElement('span');
-        const diameter = Math.max(button.clientWidth, button.clientHeight);
-        const radius = diameter / 2;
-        const rect = button.getBoundingClientRect();
-        circle.style.width = circle.style.height = `${diameter}px`;
-        circle.style.left = `${event.clientX - rect.left - radius}px`;
-        circle.style.top = `${event.clientY - rect.top - radius}px`;
-        circle.classList.add('ripple');
-        const existing = button.getElementsByClassName('ripple')[0];
-        if (existing) existing.remove();
-        button.appendChild(circle);
-        if (onClick) onClick(event);
-    };
-
-    const baseStyle = "relative overflow-hidden transition-all duration-200 px-4 py-2 text-xs font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed";
-    const variants: any = {
-        primary: "bg-primary text-black hover:bg-primary/90",
-        danger: "bg-red-900/50 text-red-200 hover:bg-red-900/70 border border-red-700/50",
-        outline: "bg-secondary text-foreground border border-border hover:bg-border"
-    };
-
-    return (
-        <button disabled={disabled} onClick={createRipple} className={`${baseStyle} ${variants[variant]} ${className}`}>
-            <span className="relative z-10">{children}</span>
-            <style jsx global>{`
-                span.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple 600ms linear; background-color: rgba(255, 255, 255, 0.3); pointer-events: none; }
-                @keyframes ripple { to { transform: scale(4); opacity: 0; } }
-            `}</style>
-        </button>
-    );
-};
+import { staggerContainer, listItem } from '@/lib/motion';
 
 // --- Main Page Component ---
 
@@ -94,8 +67,7 @@ export default function DNSPage() {
     }, [page, searchQuery]);
 
     // Handle Project Selection & Auto-fill
-    const handleProjectSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const projectId = e.target.value;
+    const handleProjectSelect = (projectId: string) => {
         setSelectedProject(projectId);
 
         if (projectId) {
@@ -165,8 +137,8 @@ export default function DNSPage() {
             className="max-w-7xl pb-20"
         >
             {/* Create Section */}
-            <Card className="p-6 border-border bg-card">
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">
+            <Card className="rounded-sm border border-border bg-card p-4 sm:p-6">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">
                     <i className="fa-solid fa-plus-circle mr-2 text-primary"></i>
                     Bind New Subdomain
                 </h3>
@@ -182,18 +154,22 @@ export default function DNSPage() {
                     {/* Project Selector */}
                     <div className="md:col-span-4">
                         <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Select Project</label>
-                        <select
-                            value={selectedProject}
-                            onChange={handleProjectSelect}
-                            className="w-full bg-secondary border border-border text-foreground text-sm p-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                        >
-                            <option value="">-- Choose a Repository --</option>
-                            {projects.map((p) => (
-                                <option key={p.uuid} value={p.uuid}>
-                                    {p.owner}/{p.name} ({p.branch})
-                                </option>
-                            ))}
-                        </select>
+                        <Select value={selectedProject} onValueChange={handleProjectSelect}>
+                            <SelectTrigger className="w-full bg-secondary border-border text-foreground">
+                                <SelectValue placeholder="-- Choose a Repository --" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border-border text-popover-foreground">
+                                {projects.map((p) => (
+                                    <SelectItem
+                                        key={p.uuid}
+                                        value={p.uuid}
+                                        className="focus:bg-secondary cursor-pointer"
+                                    >
+                                        {p.owner}/{p.name} ({p.branch})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     {/* Subdomain Input (Conditional) */}
@@ -218,13 +194,16 @@ export default function DNSPage() {
 
                     {/* Action Button */}
                     <div className="md:col-span-2">
-                        <RippleButton
+                        <Button
+                            ripple
+                            pending={creating}
+                            pendingText=""
                             onClick={handleCreate}
-                            disabled={!selectedProject || !subdomain || creating}
-                            className="w-full h-10 flex items-center justify-center"
+                            disabled={!selectedProject || !subdomain}
+                            className="w-full h-10"
                         >
-                            {creating ? <i className="fa-solid fa-spinner fa-spin"></i> : 'Bind Record'}
-                        </RippleButton>
+                            Bind Record
+                        </Button>
                     </div>
                 </div>
             </Card>
@@ -232,7 +211,7 @@ export default function DNSPage() {
             {/* List Section */}
             <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                    <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                         Active Records
                     </h3>
                     <div className="flex gap-2 justify-end">
@@ -246,9 +225,16 @@ export default function DNSPage() {
                     </div>
                 </div>
 
-                <Card className="border-border bg-card overflow-hidden">
+                <Card className="rounded-sm border border-border bg-card overflow-hidden">
                     {loading && records.length === 0 ? (
-                        <div className="p-8 text-center text-muted-foreground text-sm">Loading DNS records...</div>
+                        <TableRowsSkeleton rows={5} cols={5} />
+                    ) : records.length === 0 ? (
+                        <EmptyState
+                            icon="fa-solid fa-globe"
+                            title="No DNS records found"
+                            hint="No records match your criteria. Bind a new subdomain above to get started."
+                            className="border-0"
+                        />
                     ) : (
                         <Table>
                             <TableHeader className="bg-secondary border-b border-border md:table-header-group hidden">
@@ -260,65 +246,75 @@ export default function DNSPage() {
                                     <TableHead className="font-bold text-foreground uppercase text-xs w-24 text-right">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
-                            <TableBody>
-                                {records.map((record: any) => (
-                                    <TableRow key={record.id} className="relative block md:table-row border border-border md:border-0 md:border-b hover:bg-secondary transition-colors rounded-none p-4 md:p-0 bg-card md:bg-transparent shadow-sm md:shadow-none">
-                                        <TableCell className="block md:table-cell p-0 md:p-4 mb-2 md:mb-0 align-middle">
-                                            <Badge variant={record.type === 'A' ? 'default' : 'secondary'}className={`text-xs font-bold uppercase ${record.type === 'A' ? 'text-black' : 'text-muted-foreground'}`}>
-                                                {record.type}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="block md:table-cell p-0 md:p-4 mb-1 md:mb-0 font-mono text-foreground text-sm md:text-base font-bold md:font-normal align-middle">{record.name}</TableCell>
-                                        <TableCell className="block md:table-cell p-0 md:p-4 mb-4 md:mb-0 font-mono text-muted-foreground text-xs break-all align-middle">{record.content}</TableCell>
-                                        <TableCell className="absolute md:relative top-4 right-4 md:top-auto md:right-auto block md:table-cell p-0 md:p-4 align-middle">
-                                            {record.proxied ? (
-                                                <span className="text-primary font-bold text-xs"><i className="fa-solid fa-cloud"></i> Proxied</span>
-                                            ) : (
-                                                <span className="text-muted-foreground text-xs"><i className="fa-solid fa-cloud"></i> DNS Only</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="block md:table-cell p-0 md:p-4 pt-3 md:pt-4 mt-2 md:mt-0 border-t border-border/50 md:border-0 text-right align-middle">
-                                            <RippleButton
-                                                variant="danger"
-                                                onClick={() => handleDelete(record.id)}
-                                                className="w-full md:w-auto px-3 py-2 md:py-1 text-xs md:text-[10px]"
-                                            >
-                                                Delete
-                                            </RippleButton>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                                {records.length === 0 && !loading && (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="px-6 py-8 text-center text-muted-foreground italic">
-                                            No DNS records found matching your criteria.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
+                            <motion.tbody
+                                className="[&_tr:last-child]:border-0"
+                                variants={staggerContainer}
+                                initial="hidden"
+                                animate="show"
+                            >
+                                <AnimatePresence initial={false}>
+                                    {records.map((record: any) => (
+                                        <motion.tr
+                                            key={record.id}
+                                            layout
+                                            variants={listItem}
+                                            exit="exit"
+                                            className="relative block md:table-row border border-border md:border-0 md:border-b hover:bg-secondary transition-colors rounded-none p-4 md:p-0 bg-card md:bg-transparent shadow-sm md:shadow-none"
+                                        >
+                                                <TableCell className="block md:table-cell p-0 md:p-4 mb-2 md:mb-0 align-middle">
+                                                    <Badge variant={record.type === 'A' ? 'default' : 'secondary'} className={`text-xs font-bold uppercase ${record.type === 'A' ? 'text-black' : 'text-muted-foreground'}`}>
+                                                        {record.type}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="block md:table-cell p-0 md:p-4 mb-1 md:mb-0 font-mono text-foreground text-sm md:text-base font-bold md:font-normal align-middle">{record.name}</TableCell>
+                                                <TableCell className="block md:table-cell p-0 md:p-4 mb-4 md:mb-0 font-mono text-muted-foreground text-xs break-all align-middle">{record.content}</TableCell>
+                                                <TableCell className="absolute md:relative top-4 right-4 md:top-auto md:right-auto block md:table-cell p-0 md:p-4 align-middle">
+                                                    {record.proxied ? (
+                                                        <span className="text-primary font-bold text-xs"><i className="fa-solid fa-cloud"></i> Proxied</span>
+                                                    ) : (
+                                                        <span className="text-muted-foreground text-xs"><i className="fa-solid fa-cloud"></i> DNS Only</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="block md:table-cell p-0 md:p-4 pt-3 md:pt-4 mt-2 md:mt-0 border-t border-border/50 md:border-0 text-right align-middle">
+                                                    <Button
+                                                        ripple
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        onClick={() => handleDelete(record.id)}
+                                                        className="w-full md:w-auto"
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                </TableCell>
+                                            </motion.tr>
+                                        ))}
+                                    </AnimatePresence>
+                                </motion.tbody>
                         </Table>
                     )}
                 </Card>
 
                 {/* Pagination */}
-                <div className="flex justify-center gap-2 mt-4">
-                    <RippleButton
+                <div className="flex justify-center items-center gap-2 mt-4">
+                    <Button
                         variant="outline"
+                        size="sm"
                         disabled={page === 1}
                         onClick={() => setPage(p => Math.max(1, p - 1))}
                     >
                         Previous
-                    </RippleButton>
-                    <span className="px-4 py-2 text-sm font-bold text-foreground bg-secondary border border-border">
+                    </Button>
+                    <span className="inline-flex items-center rounded-full border border-border bg-secondary px-4 py-1.5 text-xs font-bold font-mono text-foreground">
                         Page {page}
                     </span>
-                    <RippleButton
+                    <Button
                         variant="outline"
+                        size="sm"
                         disabled={records.length < 20} // Simple check, ideally API returns total pages
                         onClick={() => setPage(p => p + 1)}
                     >
                         Next
-                    </RippleButton>
+                    </Button>
                 </div>
             </div>
         </PageShell>

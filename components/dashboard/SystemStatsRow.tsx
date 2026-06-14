@@ -2,6 +2,7 @@
 
 import { motion } from 'motion/react';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
+import { StatRowSkeleton } from '@/components/ui/skeleton';
 import { staggerContainer, staggerItem } from '@/lib/motion';
 import { formatBytes } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -38,7 +39,11 @@ function StatCard({ label, percent, detail }: { label: string; percent: number; 
     );
 }
 
-export function SystemStatsRow({ system }: { system: SystemStats | null }) {
+export function SystemStatsRow({ system, loading }: { system: SystemStats | null; loading?: boolean }) {
+    if (loading && !system) {
+        return <StatRowSkeleton />;
+    }
+
     const s = system ?? {};
     const ramUsed = (s.ram_total ?? 0) - (s.ram_remaining ?? 0);
     const diskUsed = (s.disk_total ?? 0) - (s.disk_remaining ?? 0);

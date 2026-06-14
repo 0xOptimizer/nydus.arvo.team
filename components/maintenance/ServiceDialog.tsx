@@ -148,7 +148,7 @@ export function ServiceDialog({
                         <select
                             value={form.service_type}
                             onChange={e => set('service_type', e.target.value)}
-                            className="w-full bg-secondary border border-border text-foreground text-xs p-2 focus:border-primary outline-none"
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
@@ -169,8 +169,13 @@ export function ServiceDialog({
 
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>
-                    <Button onClick={submit} disabled={busy || !form.name.trim()}>
-                        {busy ? <><i className="fa-solid fa-spinner fa-spin mr-2" />{isEdit ? 'Saving…' : 'Adding…'}</> : (isEdit ? 'Save changes' : 'Add service')}
+                    <Button
+                        onClick={submit}
+                        disabled={!form.name.trim()}
+                        pending={busy}
+                        pendingText={isEdit ? 'Saving…' : 'Adding…'}
+                    >
+                        {isEdit ? 'Save changes' : 'Add service'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

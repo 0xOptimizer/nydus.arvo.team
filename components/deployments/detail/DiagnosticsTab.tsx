@@ -5,6 +5,7 @@ import { getDeploymentDiagnostics } from '@/app/actions/deployment-control';
 import { ProcessDiagnostics, LogBlock } from '@/components/DiagnosticsView';
 import { StatusChip } from '@/components/StatusChip';
 import { Button } from '@/components/ui/button';
+import { CardSkeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/EmptyState';
 
 /**
@@ -25,7 +26,7 @@ export function DiagnosticsTab({ deploymentUuid }: { deploymentUuid: string }) {
 
     useEffect(() => { load(); }, [load]);
 
-    if (loading) return <div className="py-8 text-center text-sm text-muted-foreground">Loading diagnostics…</div>;
+    if (loading && !diag) return <CardSkeleton rows={5} className="border-0" />;
     if (!diag) {
         return (
             <EmptyState
@@ -46,7 +47,7 @@ export function DiagnosticsTab({ deploymentUuid }: { deploymentUuid: string }) {
                         state={diag.port_listening ? 'ok' : 'fail'}
                     />
                 )}
-                <Button variant="outline" size="sm" className="ml-auto" onClick={load}>
+                <Button variant="outline" size="sm" className="ml-auto" onClick={load} pending={loading} pendingText="Refreshing…">
                     <i className="fa-solid fa-rotate mr-1.5 text-xs" />Refresh
                 </Button>
             </div>

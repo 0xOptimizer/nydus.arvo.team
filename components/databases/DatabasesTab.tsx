@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { useDatabaseContext } from '@/app/databases/context/DatabaseContext'
 import {
     createDatabase, deleteDatabase,
@@ -18,7 +19,11 @@ import {
     DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TableRowsSkeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/EmptyState'
+import { PageShell } from '@/components/PageShell'
+import { staggerContainer, listItem } from '@/lib/motion'
 
 const DB_TYPE_OPTIONS = ['mysql', 'PostgreSQL (coming soon!)', 'NoSQL (coming soon!)']
 
@@ -47,7 +52,7 @@ export default function DatabasesTab() {
     const [successMsg, setSuccess]            = useState<string | null>(null)
     const [busyKey, setBusyKey]               = useState<string | null>(null)
     const [backups, setBackups]               = useState<any[]>([])
-    
+
     const [formCollapsed, setFormCollapsed]   = useState(true)
     const [dbSortCol, setDbSortCol]           = useState('name')
     const [dbSortAsc, setDbSortAsc]           = useState(true)
@@ -57,7 +62,6 @@ export default function DatabasesTab() {
     const [pmaDb, setPmaDb]                   = useState<any | null>(null)
     const [pmaUsers, setPmaUsers]             = useState<any[]>([])
     const [pmaLoading, setPmaLoading]         = useState(false)
-    const downloadRef = useRef<HTMLAnchorElement | null>(null)
 
     const flash = (msg: string) => { setSuccess(msg); setTimeout(() => setSuccess(null), 4000) }
     const err   = (msg: string) => { setError(msg);   setTimeout(() => setError(null), 6000) }
@@ -82,13 +86,13 @@ export default function DatabasesTab() {
     const handlePmaClick = async (db: any) => {
         const attached = usersForDatabase(db.database_uuid)
         if (attached.length === 0) { err('No users are attached to this database.'); return }
-        if (attached.length === 1) { 
+        if (attached.length === 1) {
             setPmaLoading(true)
             const res = await getPmaToken(attached[0].user_uuid)
             setPmaLoading(false)
             if (!res.success || !res.token) { err('Failed to generate login token.'); return }
             window.open(`https://pma.arvo.team/nydus_signon.php?server=2&token=${res.token}`, '_blank')
-            return 
+            return
         }
         setPmaDb(db)
         setPmaUsers(attached)
@@ -183,7 +187,7 @@ export default function DatabasesTab() {
 
     return (
         <TooltipProvider>
-        <div className="space-y-4">
+        <PageShell title="Databases" description="Provision databases, run backups, and manage access.">
 
             {error && (
                 <Alert variant="destructive">
@@ -200,13 +204,13 @@ export default function DatabasesTab() {
                 {/* Left Column */}
                 <div className="flex-1 space-y-4">
                     {/* New Database Card */}
-                    <div className="border border-border rounded-sm bg-card">
-                        <div className="p-4 cursor-pointer hover:bg-secondary/30 transition-colors" onClick={() => setFormCollapsed(!formCollapsed)}>
-                            <h3 className="text-sm font-medium">New Database {formCollapsed && <i className="fa-solid fa-chevron-right ml-2 text-xs text-muted-foreground inline" />}{!formCollapsed && <i className="fa-solid fa-chevron-down ml-2 text-xs text-muted-foreground inline" />}</h3>
+                    <div className="rounded-sm border border-border bg-card">
+                        <div className="flex items-center justify-between border-b border-border p-4 cursor-pointer hover:bg-secondary/30 transition-colors" onClick={() => setFormCollapsed(!formCollapsed)}>
+                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">New Database</h3>
+                            <i className={`fa-solid ${formCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'} text-xs text-muted-foreground`} />
                         </div>
                         {!formCollapsed && (
-                        <>
-                        <div className="p-4 pt-0 space-y-4">
+                        <div className="p-4 sm:p-6 space-y-4">
                             <div className="flex gap-3">
                                 <div className="w-28 shrink-0">
                                     <label className="block text-xs text-muted-foreground mb-1.5">Engine</label>
@@ -259,24 +263,31 @@ export default function DatabasesTab() {
                                 <Button
                                     variant="outline"
                                     onClick={handleCreateDb}
-                                    disabled={!newDbName || !isValidDbName(newDbName) || !actorId || creating}
+                                    disabled={!newDbName || !isValidDbName(newDbName) || !actorId}
+                                    pending={creating}
+                                    pendingText="Creating..."
                                 >
-                                    {creating && <i className="fa-solid fa-spinner fa-spin mr-2" />}
-                                    {creating ? 'Creating...' : 'Create database'}
+                                    Create database
                                 </Button>
                             </div>
                         </div>
-                        </>
                     )}
                     </div>
 
                     {/* Databases Table */}
-                    <div className="border border-border rounded-sm bg-card">
-                        <div className="p-4 pb-0">
-                            <p className="text-sm font-medium">Databases</p>
+                    <div className="rounded-sm border border-border bg-card">
+                        <div className="flex items-center justify-between border-b border-border p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Databases</p>
                         </div>
                         {loading && databases.length === 0 ? (
-                            <div className="p-8 text-center text-sm text-muted-foreground">Loading...</div>
+                            <TableRowsSkeleton rows={5} cols={5} />
+                        ) : databases.length === 0 ? (
+                            <EmptyState
+                                icon="fa-solid fa-database"
+                                title="No databases provisioned yet"
+                                hint="Create a database above or use Quick Generate to get started."
+                                className="border-0"
+                            />
                         ) : (
                             <Table>
                                 <TableHeader>
@@ -308,113 +319,116 @@ export default function DatabasesTab() {
                                         <TableHead className="text-right pr-4">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
-                                <TableBody>
-                                    {sortByColumn(databases, dbSortCol, dbSortAsc).map((db: any) => (
-                                        <TableRow key={db.database_uuid}>
-                                            <TableCell className="font-mono text-sm py-2.5">
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <span className="truncate block max-w-xs">{db.database_name}</span>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="top">{db.database_name}</TooltipContent>
-                                                </Tooltip>
-                                            </TableCell>
-                                            <TableCell className="py-2.5">
-                                                <Badge variant="secondary" className="font-normal uppercase text-xs">
-                                                    {db.database_type}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="font-mono text-xs text-muted-foreground py-2.5">
-                                                {db.allowed_hosts === '*' || db.allowed_hosts === '%'
-                                                    ? 'All'
-                                                    : db.allowed_hosts}
-                                            </TableCell>
-                                            <TableCell className="text-center py-2.5 text-xs text-muted-foreground tabular-nums cursor-pointer hover:text-foreground" onClick={() => setShowUsersList(db.database_uuid)}>
-                                                {usersForDatabase(db.database_uuid).length}
-                                            </TableCell>
-                                            <TableCell className="text-right pr-4 py-2.5">
-                                                <div className="flex justify-end gap-1 items-center">
-                                                    {db.database_type === 'mysql' && (
+                                <motion.tbody
+                                    className="[&_tr:last-child]:border-0"
+                                    variants={staggerContainer}
+                                    initial="hidden"
+                                    animate="show"
+                                >
+                                    <AnimatePresence initial={false}>
+                                        {sortByColumn(databases, dbSortCol, dbSortAsc).map((db: any) => (
+                                            <motion.tr
+                                                key={db.database_uuid}
+                                                layout
+                                                variants={listItem}
+                                                exit="exit"
+                                                className="border-b border-border transition-colors hover:bg-secondary/50"
+                                            >
+                                                <TableCell className="font-mono text-sm py-2.5">
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <span className="truncate block max-w-xs">{db.database_name}</span>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="top">{db.database_name}</TooltipContent>
+                                                    </Tooltip>
+                                                </TableCell>
+                                                <TableCell className="py-2.5">
+                                                    <Badge variant="secondary" className="font-normal uppercase text-xs">
+                                                        {db.database_type}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="font-mono text-xs text-muted-foreground py-2.5">
+                                                    {db.allowed_hosts === '*' || db.allowed_hosts === '%'
+                                                        ? 'All'
+                                                        : db.allowed_hosts}
+                                                </TableCell>
+                                                <TableCell className="text-center py-2.5 text-xs text-muted-foreground tabular-nums cursor-pointer hover:text-foreground" onClick={() => setShowUsersList(db.database_uuid)}>
+                                                    {usersForDatabase(db.database_uuid).length}
+                                                </TableCell>
+                                                <TableCell className="text-right pr-4 py-2.5">
+                                                    <div className="flex justify-end gap-1 items-center">
+                                                        {db.database_type === 'mysql' && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="icon"
+                                                                            onClick={() => handlePmaClick(db)}
+                                                                            disabled={usersForDatabase(db.database_uuid).length === 0 || pmaLoading}
+                                                                            pending={pmaLoading}
+                                                                            className="h-7 w-7"
+                                                                        >
+                                                                            <i className="fa-solid fa-table" />
+                                                                        </Button>
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top">phpMyAdmin</TooltipContent>
+                                                            </Tooltip>
+                                                        )}
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
                                                                 <span>
                                                                     <Button
                                                                         variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handlePmaClick(db)}
-                                                                        disabled={usersForDatabase(db.database_uuid).length === 0 || pmaLoading}
-                                                                        className="h-7 w-7 p-0"
+                                                                        size="icon"
+                                                                        onClick={() => handleBackup(db)}
+                                                                        pending={busyKey === `bk-${db.database_uuid}`}
+                                                                        className="h-7 w-7"
                                                                     >
-                                                                        {pmaLoading ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-table" />}
+                                                                        <i className="fa-solid fa-save" />
                                                                     </Button>
                                                                 </span>
                                                             </TooltipTrigger>
-                                                            <TooltipContent side="top">phpMyAdmin</TooltipContent>
+                                                            <TooltipContent side="top">Create backup</TooltipContent>
                                                         </Tooltip>
-                                                    )}
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <span>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => handleBackup(db)}
-                                                                    disabled={busyKey === `bk-${db.database_uuid}`}
-                                                                    className="h-7 w-7 p-0"
-                                                                >
-                                                                    {busyKey === `bk-${db.database_uuid}`
-                                                                        ? <i className="fa-solid fa-spinner fa-spin" />
-                                                                        : <i className="fa-solid fa-save" />}
-                                                                </Button>
-                                                            </span>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="top">Create backup</TooltipContent>
-                                                    </Tooltip>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <span>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => { setRestoreDb(db); setRestorePath('') }}
-                                                                    className="h-7 w-7 p-0"
-                                                                >
-                                                                    <i className="fa-solid fa-undo" />
-                                                                </Button>
-                                                            </span>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="top">Restore from backup</TooltipContent>
-                                                    </Tooltip>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <span>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={() => handleDeleteDb(db)}
-                                                                    disabled={busyKey === `del-db-${db.database_uuid}`}
-                                                                    className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                                                                >
-                                                                    {busyKey === `del-db-${db.database_uuid}`
-                                                                        ? <i className="fa-solid fa-spinner fa-spin" />
-                                                                        : <i className="fa-solid fa-trash" />}
-                                                                </Button>
-                                                            </span>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="top">Delete database</TooltipContent>
-                                                    </Tooltip>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {databases.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="px-6 py-10 text-center text-sm text-muted-foreground">
-                                                No databases provisioned yet.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="icon"
+                                                                        onClick={() => { setRestoreDb(db); setRestorePath('') }}
+                                                                        className="h-7 w-7"
+                                                                    >
+                                                                        <i className="fa-solid fa-undo" />
+                                                                    </Button>
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top">Restore from backup</TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="icon"
+                                                                        onClick={() => handleDeleteDb(db)}
+                                                                        pending={busyKey === `del-db-${db.database_uuid}`}
+                                                                        className="h-7 w-7 text-destructive hover:text-destructive"
+                                                                    >
+                                                                        <i className="fa-solid fa-trash" />
+                                                                    </Button>
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top">Delete database</TooltipContent>
+                                                        </Tooltip>
+                                                    </div>
+                                                </TableCell>
+                                            </motion.tr>
+                                        ))}
+                                    </AnimatePresence>
+                                </motion.tbody>
                             </Table>
                         )}
                     </div>
@@ -423,126 +437,141 @@ export default function DatabasesTab() {
                 {/* Right Column */}
                 <div className="w-full lg:w-80 space-y-4">
                     {/* Quick Generate Card */}
-                    <div className="flex flex-col border border-border rounded-sm bg-card">
-                        <div className="p-4">
-                            <h3 className="text-sm font-medium">Quick Generate</h3>
-                            <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+                    <div className="flex flex-col rounded-sm border border-border bg-card">
+                        <div className="p-4 sm:p-6">
+                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Quick Generate</h3>
+                            <p className="text-xs text-muted-foreground leading-relaxed mt-2">
                                 Provisions a database and dedicated user with remote access enabled. Name, credentials, and password are auto-generated.
                             </p>
                         </div>
                         <Separator />
                         <div className="flex-1 flex flex-col justify-center p-4 pt-5 gap-3">
                             <Button
+                                ripple
                                 variant="outline"
                                 onClick={handleQuickGenProvision}
-                                disabled={!actorId || expressLoading}
+                                disabled={!actorId}
+                                pending={expressLoading}
+                                pendingText="Provisioning..."
                                 className="w-full h-12"
                             >
-                                {expressLoading
-                                    ? <><i className="fa-solid fa-spinner fa-spin mr-2" />Provisioning...</>
-                                    : <><i className="fa-solid fa-bolt mr-2" />Quick Generate</>
-                                }
+                                <i className="fa-solid fa-bolt mr-2" />Quick Generate
                             </Button>
                         </div>
                     </div>
 
                     {/* Recent Backups Card */}
-                    <div className="border border-border rounded-sm bg-card">
-                        <div className="p-4 pb-0">
-                            <p className="text-sm font-medium">Recent Backups</p>
+                    <div className="rounded-sm border border-border bg-card">
+                        <div className="flex items-center justify-between border-b border-border p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Recent Backups</p>
                         </div>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="cursor-pointer hover:bg-secondary/50" onClick={() => {
-                                        if (bkSortCol === 'database_name') setBkSortAsc(!bkSortAsc)
-                                        else { setBkSortCol('database_name'); setBkSortAsc(true) }
-                                    }}>
-                                        Database {bkSortCol === 'database_name' && <i className={`fa-solid fa-chevron-${bkSortAsc ? 'up' : 'down'} text-xs ml-1 inline`} />}
-                                    </TableHead>
-                                    <TableHead className="cursor-pointer hover:bg-secondary/50" onClick={() => {
-                                        if (bkSortCol === 'created') setBkSortAsc(!bkSortAsc)
-                                        else { setBkSortCol('created'); setBkSortAsc(true) }
-                                    }}>
-                                        Date {bkSortCol === 'created' && <i className={`fa-solid fa-chevron-${bkSortAsc ? 'up' : 'down'} text-xs ml-1 inline`} />}
-                                    </TableHead>
-                                    <TableHead className="text-right pr-4">Action</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {sortByColumn(backups, bkSortCol, bkSortAsc).map((bk: any) => (
-                                    <TableRow key={bk.uuid}>
-                                        <TableCell className="font-mono text-xs py-2.5 max-w-[90px] truncate">
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <span className="truncate block">{bk.database_name}</span>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="top">{bk.database_name}</TooltipContent>
-                                            </Tooltip>
-                                        </TableCell>
-                                        <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
-                                            {formatDate(bk.created_at)}
-                                        </TableCell>
-                                        <TableCell className="text-right pr-4 py-2.5">
-                                            <div className="flex justify-end gap-1">
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <span>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleDownloadBackup(bk.uuid)}
-                                                                className="h-6 w-6 p-0"
-                                                            >
-                                                                <i className="fa-solid fa-download" />
-                                                            </Button>
-                                                        </span>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="top">Download backup</TooltipContent>
-                                                </Tooltip>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <span>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    const db = databases.find((d: any) => d.database_uuid === bk.database_uuid)
-                                                                    if (db) { setRestoreDb(db); setRestorePath('') }
-                                                                }}
-                                                                className="h-6 w-6 p-0"
-                                                            >
-                                                                <i className="fa-solid fa-undo" />
-                                                            </Button>
-                                                        </span>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="top">Restore</TooltipContent>
-                                                </Tooltip>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                                {backups.length === 0 && (
+                        {backups.length === 0 ? (
+                            <EmptyState
+                                icon="fa-solid fa-clone"
+                                title="No backups yet"
+                                hint="Backups you create this session appear here."
+                                className="border-0"
+                            />
+                        ) : (
+                            <Table>
+                                <TableHeader>
                                     <TableRow>
-                                        <TableCell colSpan={3} className="px-4 py-8 text-center text-xs text-muted-foreground">
-                                            No backups yet.
-                                        </TableCell>
+                                        <TableHead className="cursor-pointer hover:bg-secondary/50" onClick={() => {
+                                            if (bkSortCol === 'database_name') setBkSortAsc(!bkSortAsc)
+                                            else { setBkSortCol('database_name'); setBkSortAsc(true) }
+                                        }}>
+                                            Database {bkSortCol === 'database_name' && <i className={`fa-solid fa-chevron-${bkSortAsc ? 'up' : 'down'} text-xs ml-1 inline`} />}
+                                        </TableHead>
+                                        <TableHead className="cursor-pointer hover:bg-secondary/50" onClick={() => {
+                                            if (bkSortCol === 'created') setBkSortAsc(!bkSortAsc)
+                                            else { setBkSortCol('created'); setBkSortAsc(true) }
+                                        }}>
+                                            Date {bkSortCol === 'created' && <i className={`fa-solid fa-chevron-${bkSortAsc ? 'up' : 'down'} text-xs ml-1 inline`} />}
+                                        </TableHead>
+                                        <TableHead className="text-right pr-4">Action</TableHead>
                                     </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <motion.tbody
+                                    className="[&_tr:last-child]:border-0"
+                                    variants={staggerContainer}
+                                    initial="hidden"
+                                    animate="show"
+                                >
+                                    <AnimatePresence initial={false}>
+                                        {sortByColumn(backups, bkSortCol, bkSortAsc).map((bk: any) => (
+                                            <motion.tr
+                                                key={bk.uuid}
+                                                layout
+                                                variants={listItem}
+                                                exit="exit"
+                                                className="border-b border-border transition-colors hover:bg-secondary/50"
+                                            >
+                                                <TableCell className="font-mono text-xs py-2.5 max-w-[90px] truncate">
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <span className="truncate block">{bk.database_name}</span>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="top">{bk.database_name}</TooltipContent>
+                                                    </Tooltip>
+                                                </TableCell>
+                                                <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
+                                                    {formatDate(bk.created_at)}
+                                                </TableCell>
+                                                <TableCell className="text-right pr-4 py-2.5">
+                                                    <div className="flex justify-end gap-1">
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="icon"
+                                                                        onClick={() => handleDownloadBackup(bk.uuid)}
+                                                                        className="h-6 w-6"
+                                                                    >
+                                                                        <i className="fa-solid fa-download" />
+                                                                    </Button>
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top">Download backup</TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="icon"
+                                                                        onClick={() => {
+                                                                            const db = databases.find((d: any) => d.database_uuid === bk.database_uuid)
+                                                                            if (db) { setRestoreDb(db); setRestorePath('') }
+                                                                        }}
+                                                                        className="h-6 w-6"
+                                                                    >
+                                                                        <i className="fa-solid fa-undo" />
+                                                                    </Button>
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top">Restore</TooltipContent>
+                                                        </Tooltip>
+                                                    </div>
+                                                </TableCell>
+                                            </motion.tr>
+                                        ))}
+                                    </AnimatePresence>
+                                </motion.tbody>
+                            </Table>
+                        )}
                     </div>
                 </div>
             </div>
 
             {restoreDb && (
-                <div className="border border-border rounded-sm bg-card">
-                    <div className="p-4">
-                        <h3 className="text-sm font-medium">
-                            Restore — <span className="font-mono font-normal text-muted-foreground">{restoreDb.database_name}</span>
+                <div className="rounded-sm border border-border bg-card">
+                    <div className="flex items-center justify-between border-b border-border p-4">
+                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            Restore — <span className="font-mono normal-case tracking-normal text-foreground">{restoreDb.database_name}</span>
                         </h3>
                     </div>
-                    <div className="p-4 pt-0">
+                    <div className="p-4 sm:p-6">
                         <div className="flex gap-2 items-center">
                             <Input
                                 value={restorePath}
@@ -553,11 +582,12 @@ export default function DatabasesTab() {
                             <Button
                                 variant="outline"
                                 onClick={handleRestore}
-                                disabled={!restorePath || restoreLoading}
+                                disabled={!restorePath}
+                                pending={restoreLoading}
+                                pendingText="Restoring..."
                                 className="shrink-0"
                             >
-                                {restoreLoading && <i className="fa-solid fa-spinner fa-spin mr-2" />}
-                                {restoreLoading ? 'Restoring...' : 'Restore'}
+                                Restore
                             </Button>
                             <Button
                                 variant="outline"
@@ -648,10 +678,10 @@ export default function DatabasesTab() {
                                 key={u.user_uuid}
                                 variant="outline"
                                 onClick={() => handlePmaUserSelect(u.user_uuid)}
-                                disabled={pmaLoading}
+                                pending={pmaLoading}
+                                pendingText={u.username}
                                 className="w-full justify-start font-mono"
                             >
-                                {pmaLoading && <i className="fa-solid fa-spinner fa-spin mr-2" />}
                                 {u.username}
                             </Button>
                         ))}
@@ -664,7 +694,7 @@ export default function DatabasesTab() {
                 </DialogContent>
             </Dialog>
 
-        </div>
+        </PageShell>
         </TooltipProvider>
     )
 }

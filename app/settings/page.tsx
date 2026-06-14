@@ -7,7 +7,7 @@ import { getSettings, saveSettings } from '@/app/actions/settings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
+import { CardSkeleton } from '@/components/ui/skeleton';
 import { PageShell } from '@/components/PageShell';
 import { WatchdogCard } from '@/components/settings/WatchdogCard';
 
@@ -81,45 +81,63 @@ function SettingsContent() {
     getSettings().then(setSettings);
   }, []);
 
-  if (!settings) return null;
+  const backAction = showBackBtn && (
+    <Button asChild variant="secondary" className="uppercase tracking-wider">
+      <Link href="/projects">Back to Projects</Link>
+    </Button>
+  );
+
+  if (!settings) {
+    return (
+      <PageShell
+        title="System Settings"
+        description="Configure external service integrations."
+        actions={backAction}
+      >
+        <div className="space-y-6 max-w-3xl mx-auto">
+          <CardSkeleton rows={1} />
+          <CardSkeleton rows={2} />
+          <CardSkeleton rows={2} />
+        </div>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell
       title="System Settings"
       description="Configure external service integrations."
-      actions={showBackBtn && (
-        <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90 uppercase tracking-wider">
-          <Link href="/projects">Back to Projects</Link>
-        </Button>
-      )}
+      actions={backAction}
     >
-      <div className="space-y-8 max-w-3xl mx-auto">
-        
-        <Card className="border-border bg-card p-8">
-            <div className="flex items-center gap-3 mb-6 border-b border-border pb-4">
-                <i className="fa-brands fa-github text-2xl text-foreground"></i>
-                <h3 className="text-lg font-bold text-foreground uppercase tracking-wide">GitHub Integration</h3>
-            </div>
-            
-            <EditableInput 
-                label="Personal Access Token (Classic)"
-                name="pat"
-                initialValue={settings.pat}
-                type="password"
-                placeholder="ghp_xxxxxxxxxxxx"
-                note={<>Required to verify repo ownership. Scopes needed: <span className="font-bold">repo, read:user</span></>}
-            />
-        </Card>
+      <div className="space-y-6 max-w-3xl mx-auto">
 
-        <Card className="border-border bg-card p-8">
-            <div className="flex items-center gap-3 mb-6 border-b border-border pb-4">
-                <i className="fa-brands fa-cloudflare text-2xl text-foreground"></i>
-                <h3 className="text-lg font-bold text-foreground uppercase tracking-wide">Cloudflare DNS</h3>
+        <div className="rounded-sm border border-border bg-card">
+            <div className="flex items-center gap-3 border-b border-border p-4">
+                <i className="fa-brands fa-github text-base text-muted-foreground"></i>
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">GitHub Integration</h3>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <div className="p-4 sm:p-6">
+                <EditableInput
+                    label="Personal Access Token (Classic)"
+                    name="pat"
+                    initialValue={settings.pat}
+                    type="password"
+                    placeholder="ghp_xxxxxxxxxxxx"
+                    note={<>Required to verify repo ownership. Scopes needed: <span className="font-bold">repo, read:user</span></>}
+                />
+            </div>
+        </div>
+
+        <div className="rounded-sm border border-border bg-card">
+            <div className="flex items-center gap-3 border-b border-border p-4">
+                <i className="fa-brands fa-cloudflare text-base text-muted-foreground"></i>
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cloudflare DNS</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 sm:p-6">
                 <div className="col-span-2">
-                    <EditableInput 
+                    <EditableInput
                         label="API Token"
                         name="cf_token"
                         initialValue={settings.cfToken}
@@ -137,7 +155,7 @@ function SettingsContent() {
                     />
                 </div>
             </div>
-        </Card>
+        </div>
 
         <WatchdogCard />
       </div>
@@ -147,7 +165,15 @@ function SettingsContent() {
 
 export default function SettingsPage() {
     return (
-        <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading settings...</div>}>
+        <Suspense
+            fallback={
+                <div className="space-y-6 max-w-3xl mx-auto">
+                    <CardSkeleton rows={1} />
+                    <CardSkeleton rows={2} />
+                    <CardSkeleton rows={2} />
+                </div>
+            }
+        >
             <SettingsContent />
         </Suspense>
     );

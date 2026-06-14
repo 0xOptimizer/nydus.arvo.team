@@ -6,8 +6,8 @@ import { useStreamDock } from '@/context/StreamDockContext';
 import { getDeploymentStatus } from '@/app/actions/deployment-control';
 import { triggerRebuild } from '@/app/actions/deployments';
 import { PageShell } from '@/components/PageShell';
-import { StatusBadge } from '@/components/StatusBadge';
-import { StatusChip } from '@/components/StatusChip';
+import { AnimatedStatusBadge } from '@/components/AnimatedStatusBadge';
+import { AnimatedStatusChip } from '@/components/AnimatedStatusChip';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -66,26 +66,26 @@ export function DeploymentDetail({ deployment }: { deployment: any }) {
 
     const meta = (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <StatusBadge status={liveStatus} />
+            <AnimatedStatusBadge status={liveStatus} />
             {dnsMode !== 'subdomain' && (
                 <Badge variant="outline" className="font-normal text-[10px] uppercase">{dnsModeLabel(dnsMode)}</Badge>
             )}
-            <StatusChip label="pm2"  state={pm2ChipState(status?.pm2)} />
-            <StatusChip label="http" state={httpChipState(status?.http)} />
-            <StatusChip label="ssl"  state={sslChipState(status?.ssl)} />
-            <StatusChip label="dns"  state={dnsChipState(status?.dns)} />
+            <AnimatedStatusChip label="pm2"  state={pm2ChipState(status?.pm2)} />
+            <AnimatedStatusChip label="http" state={httpChipState(status?.http)} />
+            <AnimatedStatusChip label="ssl"  state={sslChipState(status?.ssl)} />
+            <AnimatedStatusChip label="dns"  state={dnsChipState(status?.dns)} />
         </div>
     );
 
     const actions = (
         <>
-            <a href={`https://${fqdn}`} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm">
+                <a href={`https://${fqdn}`} target="_blank" rel="noopener noreferrer">
                     Open site <i className="fa-solid fa-arrow-up-right-from-square ml-1.5 text-xs" />
-                </Button>
-            </a>
-            <Button size="sm" onClick={handleRebuild} disabled={rebuilding}>
-                {rebuilding ? <><i className="fa-solid fa-spinner fa-spin mr-2" />Queuing…</> : <><i className="fa-solid fa-rotate mr-2" />Rebuild</>}
+                </a>
+            </Button>
+            <Button size="sm" onClick={handleRebuild} pending={rebuilding} pendingText="Queuing…">
+                <i className="fa-solid fa-rotate mr-2" />Rebuild
             </Button>
         </>
     );

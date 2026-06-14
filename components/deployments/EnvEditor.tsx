@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { getEnvLines, updateEnvLine, addEnvLine, deleteEnvLine } from '@/app/actions/deployments';
+import { staggerContainer, listItem } from '@/lib/motion';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableRowsSkeleton } from '@/components/ui/skeleton';
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const ENV_KEY_RE = /^[A-Z_][A-Z0-9_]*$/;
 
@@ -80,8 +83,8 @@ export function EnvEditor({ deploymentUuid }: { deploymentUuid: string }) {
         setBusy(null);
     };
 
-    if (loading) {
-        return <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>;
+    if (loading && envLines.length === 0) {
+        return <TableRowsSkeleton rows={5} cols={3} />;
     }
 
     return (
@@ -97,9 +100,23 @@ export function EnvEditor({ deploymentUuid }: { deploymentUuid: string }) {
                         <TableHead className="w-20 text-right pr-2">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
-                <TableBody>
+                <motion.tbody
+                    className="[&_tr:last-child]:border-0"
+                    variants={staggerContainer}
+                    initial="hidden"
+                    animate="show"
+                >
+                  <AnimatePresence initial={false}>
                     {envLines.map(({ key, value }) => (
-                        <TableRow key={key}>
+                        <motion.tr
+                            key={key}
+                            layout
+                            variants={listItem}
+                            initial="hidden"
+                            animate="show"
+                            exit="exit"
+                            className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
+                        >
                             <TableCell className="font-mono text-xs py-2 align-middle">{key}</TableCell>
                             <TableCell className="py-2 align-middle">
                                 {editingKey === key ? (
@@ -120,8 +137,8 @@ export function EnvEditor({ deploymentUuid }: { deploymentUuid: string }) {
                                 <div className="flex justify-end gap-1">
                                     {editingKey === key ? (
                                         <>
-                                            <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => handleSave(key)} disabled={busy === key}>
-                                                {busy === key ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-check" />}
+                                            <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => handleSave(key)} pending={busy === key}>
+                                                <i className="fa-solid fa-check" />
                                             </Button>
                                             <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => setEditingKey(null)} disabled={busy === key}>
                                                 <i className="fa-solid fa-xmark" />
@@ -132,14 +149,14 @@ export function EnvEditor({ deploymentUuid }: { deploymentUuid: string }) {
                                             <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => { setEditingKey(key); setEditingValue(value); }} disabled={!!busy}>
                                                 <i className="fa-solid fa-pen" />
                                             </Button>
-                                            <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(key)} disabled={!!busy}>
-                                                {busy === key ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-trash" />}
+                                            <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(key)} disabled={!!busy && busy !== key} pending={busy === key}>
+                                                <i className="fa-solid fa-trash" />
                                             </Button>
                                         </>
                                     )}
                                 </div>
                             </TableCell>
-                        </TableRow>
+                        </motion.tr>
                     ))}
                     {envLines.length === 0 && (
                         <TableRow>
@@ -148,7 +165,8 @@ export function EnvEditor({ deploymentUuid }: { deploymentUuid: string }) {
                             </TableCell>
                         </TableRow>
                     )}
-                </TableBody>
+                  </AnimatePresence>
+                </motion.tbody>
             </Table>
 
             <Separator className="my-3" />
@@ -173,8 +191,8 @@ export function EnvEditor({ deploymentUuid }: { deploymentUuid: string }) {
                         className="font-mono text-xs flex-1"
                         disabled={busy === '__new__'}
                     />
-                    <Button variant="outline" size="sm" onClick={handleAdd} disabled={!newKey || busy === '__new__'} className="shrink-0">
-                        {busy === '__new__' ? <i className="fa-solid fa-spinner fa-spin" /> : 'Add'}
+                    <Button variant="outline" size="sm" onClick={handleAdd} disabled={!newKey} pending={busy === '__new__'} className="shrink-0">
+                        Add
                     </Button>
                 </div>
             </div>
