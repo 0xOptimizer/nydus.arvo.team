@@ -1,14 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
 import { getProjects } from '@/app/actions/projects';
 import { getDNSRecords, createSubdomainRecord, deleteDNSRecord } from '@/app/actions/cloudflare';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert } from '@/components/ui/alert';
 import {
     Select,
     SelectContent,
@@ -16,13 +13,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { TableRowsSkeleton } from '@/components/ui/skeleton';
+import { StatusChip } from '@/components/StatusChip';
 import { EmptyState } from '@/components/EmptyState';
 import { PageShell } from '@/components/PageShell';
-import { staggerContainer, listItem } from '@/lib/motion';
-
-// --- Main Page Component ---
+import { Section } from '@/components/ui/section';
+import { DataTable, type Column } from '@/components/ui/data-table';
+import { Field, FormGrid } from '@/components/ui/field';
 
 export default function DNSPage() {
     // Data State
@@ -87,6 +83,7 @@ export default function DNSPage() {
 
     // Subdomain Validation
     const isValidSubdomain = (name: string) => /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(name);
+    const subdomainInvalid = subdomain.length > 0 && !isValidSubdomain(subdomain);
 
     // Create Action
     const handleCreate = async () => {
@@ -130,193 +127,177 @@ export default function DNSPage() {
         setLoading(false);
     };
 
+    const recordColumns: Column<any>[] = [
+        {
+            key: 'type',
+            header: 'Type',
+            render: (record) => (
+                <Badge variant={record.type === 'A' ? 'default' : 'secondary'} className="text-[10px] font-bold uppercase">
+                    {record.type}
+                </Badge>
+            ),
+        },
+        {
+            key: 'name',
+            header: 'Name',
+            render: (record) => (
+                <span className="font-mono text-sm font-medium text-foreground">{record.name}</span>
+            ),
+        },
+        {
+            key: 'content',
+            header: 'Content',
+            render: (record) => (
+                <span className="break-all font-mono text-xs text-muted-foreground">{record.content}</span>
+            ),
+        },
+        {
+            key: 'proxy',
+            header: 'Proxy',
+            render: (record) => (
+                <StatusChip
+                    label={record.proxied ? 'Proxied' : 'DNS only'}
+                    state={record.proxied ? 'ok' : 'unknown'}
+                />
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            align: 'right',
+            render: (record) => (
+                <div className="flex justify-end">
+                    <Button
+                        variant="outline"
+                        tone="inactive"
+                        size="sm"
+                        onClick={() => handleDelete(record.id)}
+                    >
+                        Delete
+                    </Button>
+                </div>
+            ),
+        },
+    ];
+
     return (
         <PageShell
             title="Cloudflare"
             description="Manage subdomains and bind them to internal deployments."
-            className="max-w-7xl pb-20"
         >
-            {/* Create Section */}
-            <Card className="rounded-sm border border-border bg-card p-4 sm:p-6">
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">
-                    <i className="fa-solid fa-plus-circle mr-2 text-primary"></i>
-                    Bind New Subdomain
-                </h3>
-
-                {error && (
-                    <Alert className="mb-4 bg-red-950/30 border-red-900/50 text-red-200 text-xs font-bold">
-                        <i className="fa-solid fa-triangle-exclamation mr-2"></i>
-                        {error}
-                    </Alert>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                    {/* Project Selector */}
-                    <div className="md:col-span-4">
-                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Select Project</label>
+            <Section
+                title="New record"
+                description="Bind a project to a subdomain on arvo.team"
+                icon="fa-solid fa-plus-circle"
+            >
+                <FormGrid cols={2}>
+                    <Field
+                        label="Project"
+                        hint="Picks a default subdomain from the repository name."
+                    >
                         <Select value={selectedProject} onValueChange={handleProjectSelect}>
-                            <SelectTrigger className="w-full bg-secondary border-border text-foreground">
-                                <SelectValue placeholder="-- Choose a Repository --" />
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Choose a repository…" />
                             </SelectTrigger>
-                            <SelectContent className="bg-popover border-border text-popover-foreground">
+                            <SelectContent>
                                 {projects.map((p) => (
-                                    <SelectItem
-                                        key={p.uuid}
-                                        value={p.uuid}
-                                        className="focus:bg-secondary cursor-pointer"
-                                    >
+                                    <SelectItem key={p.uuid} value={p.uuid} className="cursor-pointer">
                                         {p.owner}/{p.name} ({p.branch})
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                    </div>
+                    </Field>
 
-                    {/* Subdomain Input (Conditional) */}
-                    <div className={`md:col-span-6 transition-all duration-300 ${selectedProject ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">
-                            Assigned Subdomain
-                            {!isValidSubdomain(subdomain) && subdomain.length > 0 && <span className="text-red-400 ml-2 normal-case italic">(Invalid format)</span>}
-                        </label>
-                        <div className="flex">
+                    <Field
+                        label="Subdomain"
+                        hint="Lowercase letters, numbers, and hyphens only."
+                        error={subdomainInvalid ? 'Invalid subdomain format.' : error || undefined}
+                    >
+                        <div className={`flex transition-opacity duration-300 ${selectedProject ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
                             <Input
                                 type="text"
                                 value={subdomain}
                                 onChange={(e) => setSubdomain(e.target.value.toLowerCase().trim())}
                                 placeholder="project-name"
-                                className="flex-1 bg-background border-r-0 text-right font-mono border-border"
+                                className="flex-1 rounded-r-none border-r-0 text-right font-mono"
                             />
-                            <span className="bg-secondary border border-l-0 border-border text-muted-foreground text-sm font-mono p-2 select-none">
+                            <span className="inline-flex select-none items-center rounded-r-md border border-l-0 border-border bg-secondary px-3 font-mono text-sm text-muted-foreground">
                                 .arvo.team
                             </span>
                         </div>
-                    </div>
+                    </Field>
+                </FormGrid>
 
-                    {/* Action Button */}
-                    <div className="md:col-span-2">
+                <div className="mt-4 flex justify-end">
+                    <Button
+                        ripple
+                        pending={creating}
+                        pendingText="Binding…"
+                        onClick={handleCreate}
+                        disabled={!selectedProject || !subdomain || subdomainInvalid}
+                    >
+                        <i className="fa-solid fa-plus" /> Bind record
+                    </Button>
+                </div>
+            </Section>
+
+            <Section
+                title="Active records"
+                description="DNS records managed through Nydus"
+                icon="fa-solid fa-globe"
+                flush
+                actions={
+                    <Input
+                        type="text"
+                        placeholder="Search records…"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-8 w-44 sm:w-64"
+                    />
+                }
+                footer={
+                    <div className="flex items-center justify-between gap-2">
                         <Button
-                            ripple
-                            pending={creating}
-                            pendingText=""
-                            onClick={handleCreate}
-                            disabled={!selectedProject || !subdomain}
-                            className="w-full h-10"
+                            variant="outline"
+                            size="sm"
+                            disabled={page === 1}
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
                         >
-                            Bind Record
+                            <i className="fa-solid fa-arrow-left" /> Previous
+                        </Button>
+                        <span className="inline-flex items-center rounded-full border border-border bg-secondary px-4 py-1.5 font-mono text-xs font-bold text-foreground">
+                            Page {page}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={records.length < 20} // Simple check, ideally API returns total pages
+                            onClick={() => setPage(p => p + 1)}
+                        >
+                            Next <i className="fa-solid fa-arrow-right" />
                         </Button>
                     </div>
-                </div>
-            </Card>
-
-            {/* List Section */}
-            <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                        Active Records
-                    </h3>
-                    <div className="flex gap-2 justify-end">
-                        <Input
-                            type="text"
-                            placeholder="Search records..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-card w-full md:w-64 border-border text-foreground text-xs"
-                        />
-                    </div>
-                </div>
-
-                <Card className="rounded-sm border border-border bg-card overflow-hidden">
-                    {loading && records.length === 0 ? (
-                        <TableRowsSkeleton rows={5} cols={5} />
-                    ) : records.length === 0 ? (
+                }
+            >
+                <DataTable
+                    columns={recordColumns}
+                    rows={records}
+                    getRowId={(record) => record.id}
+                    loading={loading}
+                    empty={
                         <EmptyState
                             icon="fa-solid fa-globe"
-                            title="No DNS records found"
-                            hint="No records match your criteria. Bind a new subdomain above to get started."
-                            className="border-0"
+                            title={searchQuery ? 'No matching records' : 'No DNS records found'}
+                            hint={
+                                searchQuery
+                                    ? 'No records match your search. Try a different query.'
+                                    : 'Bind a new subdomain above to get started.'
+                            }
                         />
-                    ) : (
-                        <Table>
-                            <TableHeader className="bg-secondary border-b border-border md:table-header-group hidden">
-                                <TableRow className="border-border">
-                                    <TableHead className="font-bold text-foreground uppercase text-xs w-24">Type</TableHead>
-                                    <TableHead className="font-bold text-foreground uppercase text-xs">Name</TableHead>
-                                    <TableHead className="font-bold text-foreground uppercase text-xs">Content</TableHead>
-                                    <TableHead className="font-bold text-foreground uppercase text-xs w-32">Proxy</TableHead>
-                                    <TableHead className="font-bold text-foreground uppercase text-xs w-24 text-right">Action</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <motion.tbody
-                                className="[&_tr:last-child]:border-0"
-                                variants={staggerContainer}
-                                initial="hidden"
-                                animate="show"
-                            >
-                                <AnimatePresence initial={false}>
-                                    {records.map((record: any) => (
-                                        <motion.tr
-                                            key={record.id}
-                                            layout
-                                            variants={listItem}
-                                            exit="exit"
-                                            className="relative block md:table-row border border-border md:border-0 md:border-b hover:bg-secondary transition-colors rounded-none p-4 md:p-0 bg-card md:bg-transparent shadow-sm md:shadow-none"
-                                        >
-                                                <TableCell className="block md:table-cell p-0 md:p-4 mb-2 md:mb-0 align-middle">
-                                                    <Badge variant={record.type === 'A' ? 'default' : 'secondary'} className={`text-xs font-bold uppercase ${record.type === 'A' ? 'text-black' : 'text-muted-foreground'}`}>
-                                                        {record.type}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="block md:table-cell p-0 md:p-4 mb-1 md:mb-0 font-mono text-foreground text-sm md:text-base font-bold md:font-normal align-middle">{record.name}</TableCell>
-                                                <TableCell className="block md:table-cell p-0 md:p-4 mb-4 md:mb-0 font-mono text-muted-foreground text-xs break-all align-middle">{record.content}</TableCell>
-                                                <TableCell className="absolute md:relative top-4 right-4 md:top-auto md:right-auto block md:table-cell p-0 md:p-4 align-middle">
-                                                    {record.proxied ? (
-                                                        <span className="text-primary font-bold text-xs"><i className="fa-solid fa-cloud"></i> Proxied</span>
-                                                    ) : (
-                                                        <span className="text-muted-foreground text-xs"><i className="fa-solid fa-cloud"></i> DNS Only</span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="block md:table-cell p-0 md:p-4 pt-3 md:pt-4 mt-2 md:mt-0 border-t border-border/50 md:border-0 text-right align-middle">
-                                                    <Button
-                                                        ripple
-                                                        variant="destructive"
-                                                        size="sm"
-                                                        onClick={() => handleDelete(record.id)}
-                                                        className="w-full md:w-auto"
-                                                    >
-                                                        Delete
-                                                    </Button>
-                                                </TableCell>
-                                            </motion.tr>
-                                        ))}
-                                    </AnimatePresence>
-                                </motion.tbody>
-                        </Table>
-                    )}
-                </Card>
-
-                {/* Pagination */}
-                <div className="flex justify-center items-center gap-2 mt-4">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page === 1}
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                    >
-                        Previous
-                    </Button>
-                    <span className="inline-flex items-center rounded-full border border-border bg-secondary px-4 py-1.5 text-xs font-bold font-mono text-foreground">
-                        Page {page}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={records.length < 20} // Simple check, ideally API returns total pages
-                        onClick={() => setPage(p => p + 1)}
-                    >
-                        Next
-                    </Button>
-                </div>
-            </div>
+                    }
+                />
+            </Section>
         </PageShell>
     );
 }

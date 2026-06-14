@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { recoverServer } from '@/app/actions/services';
 import { Button } from '@/components/ui/button';
+import { Section } from '@/components/ui/section';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -30,7 +31,7 @@ export function RecoverAllButton() {
     return (
         <>
             <Button variant="outline" size="sm" onClick={run} pending={busy} pendingText="Recovering…">
-                <i className="fa-solid fa-heart-pulse mr-1.5" />
+                <i className="fa-solid fa-heart-pulse" />
                 Recover all
             </Button>
 
@@ -57,14 +58,21 @@ export function RecoverAllButton() {
                     ) : result && !result.success ? (
                         <p className="py-4 text-sm text-destructive">{result.error || 'Recovery failed.'}</p>
                     ) : result ? (
-                        <div className="space-y-3 py-1">
-                            <div className="flex items-center gap-4 text-sm">
-                                <span className={cn('font-bold', result.status === 'ok' ? 'text-green-500' : 'text-amber-500')}>
-                                    {result.status === 'ok' ? 'OK' : 'Partial'}
-                                </span>
-                                <span className="text-green-500">{result.recovered ?? 0} recovered</span>
-                                <span className="text-red-500">{result.failed ?? 0} failed</span>
-                            </div>
+                        <Section
+                            title="Recovery report"
+                            icon="fa-solid fa-heart-pulse"
+                            flush
+                            actions={
+                                <div className="flex items-center gap-3 text-xs">
+                                    <span className={cn('font-bold', result.status === 'ok' ? 'text-green-500' : 'text-amber-500')}>
+                                        {result.status === 'ok' ? 'OK' : 'Partial'}
+                                    </span>
+                                    <span className="text-green-500">{result.recovered ?? 0} recovered</span>
+                                    <span className="text-red-500">{result.failed ?? 0} failed</span>
+                                </div>
+                            }
+                            bodyClassName="p-3"
+                        >
                             <div className="max-h-72 space-y-1 overflow-y-auto">
                                 {(result.report ?? []).map((r: any, i: number) => (
                                     <div key={r.target ?? i} className="flex items-start gap-2 rounded-sm border border-border bg-background/40 px-2.5 py-1.5 text-xs">
@@ -77,7 +85,7 @@ export function RecoverAllButton() {
                                     <p className="text-xs text-muted-foreground">Nothing needed recovery.</p>
                                 )}
                             </div>
-                        </div>
+                        </Section>
                     ) : null}
                 </DialogContent>
             </Dialog>

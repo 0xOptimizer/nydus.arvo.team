@@ -1,15 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { getEnvLines, updateEnvLine, addEnvLine, deleteEnvLine } from '@/app/actions/deployments';
-import { staggerContainer, listItem } from '@/lib/motion';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { TableRowsSkeleton } from '@/components/ui/skeleton';
-import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DataTable, type Column } from '@/components/ui/data-table';
+import { Field, FormGrid } from '@/components/ui/field';
+import { EmptyState } from '@/components/EmptyState';
 
 const ENV_KEY_RE = /^[A-Z_][A-Z0-9_]*$/;
 
@@ -83,98 +81,86 @@ export function EnvEditor({ deploymentUuid }: { deploymentUuid: string }) {
         setBusy(null);
     };
 
-    if (loading && envLines.length === 0) {
-        return <TableRowsSkeleton rows={5} cols={3} />;
-    }
+    const columns: Column<{ key: string; value: string }>[] = [
+        {
+            key: 'key',
+            header: 'Key',
+            className: 'w-52',
+            render: ({ key }) => <span className="font-mono text-xs text-foreground">{key}</span>,
+        },
+        {
+            key: 'value',
+            header: 'Value',
+            render: ({ key, value }) =>
+                editingKey === key ? (
+                    <Input
+                        value={editingValue}
+                        onChange={e => setEditingValue(e.target.value)}
+                        className="h-7 font-mono text-xs"
+                        disabled={busy === key}
+                        autoFocus
+                    />
+                ) : (
+                    <span className="font-mono text-xs text-muted-foreground break-all">
+                        {value || <span className="italic opacity-40">empty</span>}
+                    </span>
+                ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            align: 'right',
+            render: ({ key, value }) => (
+                <div className="flex justify-end gap-1">
+                    {editingKey === key ? (
+                        <>
+                            <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => handleSave(key)} pending={busy === key}>
+                                <i className="fa-solid fa-check" />
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => setEditingKey(null)} disabled={busy === key}>
+                                <i className="fa-solid fa-xmark" />
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => { setEditingKey(key); setEditingValue(value); }} disabled={!!busy}>
+                                <i className="fa-solid fa-pen" />
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(key)} disabled={!!busy && busy !== key} pending={busy === key}>
+                                <i className="fa-solid fa-trash" />
+                            </Button>
+                        </>
+                    )}
+                </div>
+            ),
+        },
+    ];
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-4">
             {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
             {successMsg && <Alert><AlertDescription>{successMsg}</AlertDescription></Alert>}
 
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead className="w-52">Key</TableHead>
-                        <TableHead>Value</TableHead>
-                        <TableHead className="w-20 text-right pr-2">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <motion.tbody
-                    className="[&_tr:last-child]:border-0"
-                    variants={staggerContainer}
-                    initial="hidden"
-                    animate="show"
-                >
-                  <AnimatePresence initial={false}>
-                    {envLines.map(({ key, value }) => (
-                        <motion.tr
-                            key={key}
-                            layout
-                            variants={listItem}
-                            initial="hidden"
-                            animate="show"
-                            exit="exit"
-                            className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
-                        >
-                            <TableCell className="font-mono text-xs py-2 align-middle">{key}</TableCell>
-                            <TableCell className="py-2 align-middle">
-                                {editingKey === key ? (
-                                    <Input
-                                        value={editingValue}
-                                        onChange={e => setEditingValue(e.target.value)}
-                                        className="font-mono text-xs h-7"
-                                        disabled={busy === key}
-                                        autoFocus
-                                    />
-                                ) : (
-                                    <span className="font-mono text-xs text-muted-foreground break-all">
-                                        {value || <span className="italic opacity-40">empty</span>}
-                                    </span>
-                                )}
-                            </TableCell>
-                            <TableCell className="py-2 text-right pr-2 align-middle">
-                                <div className="flex justify-end gap-1">
-                                    {editingKey === key ? (
-                                        <>
-                                            <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => handleSave(key)} pending={busy === key}>
-                                                <i className="fa-solid fa-check" />
-                                            </Button>
-                                            <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => setEditingKey(null)} disabled={busy === key}>
-                                                <i className="fa-solid fa-xmark" />
-                                            </Button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => { setEditingKey(key); setEditingValue(value); }} disabled={!!busy}>
-                                                <i className="fa-solid fa-pen" />
-                                            </Button>
-                                            <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(key)} disabled={!!busy && busy !== key} pending={busy === key}>
-                                                <i className="fa-solid fa-trash" />
-                                            </Button>
-                                        </>
-                                    )}
-                                </div>
-                            </TableCell>
-                        </motion.tr>
-                    ))}
-                    {envLines.length === 0 && (
-                        <TableRow>
-                            <TableCell colSpan={3} className="py-8 text-center text-xs text-muted-foreground">
-                                No environment variables found.
-                            </TableCell>
-                        </TableRow>
-                    )}
-                  </AnimatePresence>
-                </motion.tbody>
-            </Table>
+            <div className="overflow-hidden rounded-sm border border-border">
+                <DataTable
+                    columns={columns}
+                    rows={envLines}
+                    getRowId={(l) => l.key}
+                    loading={loading}
+                    empty={
+                        <EmptyState
+                            icon="fa-solid fa-file-code"
+                            title="No environment variables"
+                            hint="Add a variable below to populate this deployment's env file."
+                        />
+                    }
+                />
+            </div>
 
-            <Separator className="my-3" />
-
-            <div className="space-y-2">
-                <p className="text-xs text-muted-foreground font-medium">Add Variable</p>
-                <div className="flex gap-2 items-start">
-                    <div className="w-52 shrink-0 space-y-1">
+            <div className="rounded-sm border border-border p-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Add variable</p>
+                <FormGrid cols={2} className="mt-3 items-start">
+                    <Field label="Key" error={newKeyErr || undefined}>
                         <Input
                             value={newKey}
                             onChange={e => { setNewKey(e.target.value.toUpperCase().trim()); setNewKeyErr(''); }}
@@ -182,17 +168,20 @@ export function EnvEditor({ deploymentUuid }: { deploymentUuid: string }) {
                             className="font-mono text-xs"
                             disabled={busy === '__new__'}
                         />
-                        {newKeyErr && <p className="text-xs text-destructive">{newKeyErr}</p>}
-                    </div>
-                    <Input
-                        value={newValue}
-                        onChange={e => setNewValue(e.target.value)}
-                        placeholder="value"
-                        className="font-mono text-xs flex-1"
-                        disabled={busy === '__new__'}
-                    />
-                    <Button variant="outline" size="sm" onClick={handleAdd} disabled={!newKey} pending={busy === '__new__'} className="shrink-0">
-                        Add
+                    </Field>
+                    <Field label="Value">
+                        <Input
+                            value={newValue}
+                            onChange={e => setNewValue(e.target.value)}
+                            placeholder="value"
+                            className="font-mono text-xs"
+                            disabled={busy === '__new__'}
+                        />
+                    </Field>
+                </FormGrid>
+                <div className="mt-3 flex justify-end">
+                    <Button size="sm" onClick={handleAdd} disabled={!newKey} pending={busy === '__new__'} pendingText="Adding…">
+                        <i className="fa-solid fa-plus" /> Add variable
                     </Button>
                 </div>
             </div>

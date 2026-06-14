@@ -6,13 +6,6 @@ import {
   Pie, PieChart, XAxis, YAxis
 } from "recharts"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
@@ -26,6 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton, CardSkeleton } from "@/components/ui/skeleton"
+import { Section } from "@/components/ui/section"
+import { EmptyState } from "@/components/EmptyState"
 import { AnimatedNumber } from "@/components/AnimatedNumber"
 import { getCloudflareAnalytics } from "@/app/actions/cloudflare"
 
@@ -185,19 +180,32 @@ export default function AnalyticsPanel() {
     [granularity]
   )
 
+  const rangeSelect = (
+    <Select value={range} onValueChange={setRange}>
+      <SelectTrigger className="h-8 w-[160px]">
+        <SelectValue placeholder="Select range" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="1" className="cursor-pointer">Last 24 hours</SelectItem>
+        <SelectItem value="3" className="cursor-pointer">Last 3 days</SelectItem>
+        <SelectItem value="7" className="cursor-pointer">Last 7 days</SelectItem>
+      </SelectContent>
+    </Select>
+  )
+
   if (loading && data.length === 0) {
     return (
-      <div className="w-full space-y-8">
+      <div className="w-full space-y-6">
         <div className="flex items-center justify-end">
-          <Skeleton className="h-9 w-[180px] bg-muted/30" />
+          <Skeleton className="h-8 w-[160px] bg-muted/30" />
         </div>
         <CardSkeleton rows={6} />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <CardSkeleton rows={4} />
           <CardSkeleton rows={4} />
         </div>
         <CardSkeleton rows={5} />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <CardSkeleton rows={4} />
           <CardSkeleton rows={4} />
         </div>
@@ -205,341 +213,305 @@ export default function AnalyticsPanel() {
     )
   }
 
-  return (
-    <div className="w-full space-y-8">
-      <div className="flex items-center justify-end">
-        <Select value={range} onValueChange={setRange}>
-          <SelectTrigger className="w-[180px] bg-card border-border text-card-foreground">
-            <SelectValue placeholder="Select Range" />
-          </SelectTrigger>
-          <SelectContent className="bg-popover border-border text-popover-foreground">
-            <SelectItem value="1" className="focus:bg-secondary focus:text-primary-foreground cursor-pointer">
-              Last 24 Hours
-            </SelectItem>
-            <SelectItem value="3" className="focus:bg-secondary focus:text-primary-foreground cursor-pointer">
-              Last 3 Days
-            </SelectItem>
-            <SelectItem value="7" className="focus:bg-secondary focus:text-primary-foreground cursor-pointer">
-              Last 7 Days
-            </SelectItem>
-          </SelectContent>
-        </Select>
+  if (!loading && data.length === 0) {
+    return (
+      <div className="w-full space-y-6">
+        <div className="flex items-center justify-end">{rangeSelect}</div>
+        <EmptyState
+          icon="fa-solid fa-chart-area"
+          title="No analytics data"
+          hint="No traffic was recorded for the selected period. Try a wider range."
+        />
       </div>
+    )
+  }
+
+  return (
+    <div className="w-full space-y-6">
+      <div className="flex items-center justify-end">{rangeSelect}</div>
 
       {/* Unique Visitors Chart */}
-      <Card className="rounded-sm bg-card border-border overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div className="grid gap-1">
-            <CardTitle className="text-base font-medium text-white">Unique Visitors</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Showing traffic trends for the selected period
-            </CardDescription>
-          </div>
+      <Section
+        title="Unique visitors"
+        description="Traffic trends for the selected period"
+        icon="fa-solid fa-users"
+        actions={
           <div className="flex flex-col items-end">
-            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Total</span>
-            <AnimatedNumber value={totalVisitors} className="text-3xl font-black text-white" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total</span>
+            <AnimatedNumber value={totalVisitors} className="text-2xl font-black text-foreground" />
           </div>
-        </CardHeader>
-        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-          <ChartContainer config={chartConfig} className="aspect-auto h-[350px] w-full">
-            <AreaChart data={data} margin={{ left: -20, right: 20, top: 20, bottom: 20 }}>
-              <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis
-                dataKey="timestamp"
-                tickFormatter={formatDate}
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-                minTickGap={32}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-              />
-              <ChartTooltip content={<ChartTooltipContent indicator="line" labelFormatter={formatDate} />} />
-              <Area
-                dataKey="visitors"
-                type="monotone"
-                fill="var(--primary)"
-                fillOpacity={0.15}
-                stroke="var(--primary)"
-                strokeWidth={2}
-                activeDot={{ r: 6, strokeWidth: 0, fill: "var(--primary)" }}
-              />
-            </AreaChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+        }
+      >
+        <ChartContainer config={chartConfig} className="aspect-auto h-[350px] w-full">
+          <AreaChart data={data} margin={{ left: -20, right: 20, top: 20, bottom: 20 }}>
+            <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
+            <XAxis
+              dataKey="timestamp"
+              tickFormatter={formatDate}
+              tickLine={false}
+              axisLine={false}
+              tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+              minTickGap={32}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+            />
+            <ChartTooltip content={<ChartTooltipContent indicator="line" labelFormatter={formatDate} />} />
+            <Area
+              dataKey="visitors"
+              type="monotone"
+              fill="var(--primary)"
+              fillOpacity={0.15}
+              stroke="var(--primary)"
+              strokeWidth={2}
+              activeDot={{ r: 6, strokeWidth: 0, fill: "var(--primary)" }}
+            />
+          </AreaChart>
+        </ChartContainer>
+      </Section>
 
       {/* Device Distribution & Top Countries */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="rounded-sm bg-card border-border">
-          <CardHeader className="pb-0">
-            <CardTitle className="text-white text-center">Device Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[250px]">
-              <PieChart>
-                <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-                <Pie
-                  data={deviceData}
-                  dataKey="visitors"
-                  nameKey="browser"
-                  innerRadius={75}
-                  outerRadius={100}
-                  paddingAngle={8}
-                  stroke="none"
-                >
-                  {deviceData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.fill}
-                      className="hover:opacity-80 transition-opacity cursor-pointer"
-                    />
-                  ))}
-                  <Label
-                    content={({ viewBox }) => {
-                      if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                        return (
-                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                            <tspan x={viewBox.cx} y={viewBox.cy} className="fill-white text-2xl font-bold">
-                              {deviceData.reduce((acc, curr) => acc + curr.visitors, 0)}
-                            </tspan>
-                            <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 20} className="fill-muted-foreground text-xs uppercase tracking-widest">
-                              Total
-                            </tspan>
-                          </text>
-                        )
-                      }
-                    }}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <Section title="Device distribution" icon="fa-solid fa-desktop">
+          <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[250px]">
+            <PieChart>
+              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+              <Pie
+                data={deviceData}
+                dataKey="visitors"
+                nameKey="browser"
+                innerRadius={75}
+                outerRadius={100}
+                paddingAngle={8}
+                stroke="none"
+              >
+                {deviceData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={entry.fill}
+                    className="cursor-pointer transition-opacity hover:opacity-80"
                   />
-                </Pie>
-              </PieChart>
-            </ChartContainer>
-            <div className="flex flex-wrap justify-center gap-4 mt-4">
-              {deviceData.map((entry) => (
-                <div key={entry.browser} className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.fill }} />
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground">{entry.browser}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+                <Label
+                  content={({ viewBox }) => {
+                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                      return (
+                        <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                          <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-2xl font-bold">
+                            {deviceData.reduce((acc, curr) => acc + curr.visitors, 0)}
+                          </tspan>
+                          <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 20} className="fill-muted-foreground text-xs uppercase tracking-widest">
+                            Total
+                          </tspan>
+                        </text>
+                      )
+                    }
+                  }}
+                />
+              </Pie>
+            </PieChart>
+          </ChartContainer>
+          <div className="mt-4 flex flex-wrap justify-center gap-4">
+            {deviceData.map((entry) => (
+              <div key={entry.browser} className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.fill }} />
+                <span className="text-[10px] font-bold uppercase text-muted-foreground">{entry.browser}</span>
+              </div>
+            ))}
+          </div>
+        </Section>
 
-        <Card className="rounded-sm bg-card border-border w-full min-w-0">
-          <CardHeader>
-            <CardTitle className="text-white">Top Countries</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-              <div ref={countriesChartRef}>
-                <ChartContainer
-                  config={chartConfig}
-                  className="w-full"
-                  style={{ height: `${countriesData.length * 45}px` }}
+        <Section title="Top countries" icon="fa-solid fa-earth-americas" className="min-w-0">
+          <div className="custom-scrollbar h-[250px] overflow-y-auto pr-2">
+            <div ref={countriesChartRef}>
+              <ChartContainer
+                config={chartConfig}
+                className="w-full"
+                style={{ height: `${countriesData.length * 45}px` }}
+              >
+                <BarChart
+                  data={countriesData}
+                  layout="vertical"
+                  margin={{ left: 0, right: 60, top: 10, bottom: 10 }}
                 >
-                  <BarChart
-                    data={countriesData}
-                    layout="vertical"
-                    margin={{ left: 0, right: 60, top: 10, bottom: 10 }}
-                  >
-                    <YAxis dataKey="label" type="category" hide />
-                    <XAxis type="number" hide />
-                    <Bar barSize={24} dataKey="visitors" fill="var(--secondary)" radius={4}>
-                      <LabelList
-                        dataKey="label"
-                        content={(props) => {
-                          const { x, y, height, value } = props;
-                          const xOffset = (typeof x === 'number' ? x : 0) + 8;
-                          const yOffset = (typeof y === 'number' ? y : 0);
-                          const centerY = yOffset + (typeof height === 'number' ? height : 0) / 2;
+                  <YAxis dataKey="label" type="category" hide />
+                  <XAxis type="number" hide />
+                  <Bar barSize={24} dataKey="visitors" fill="var(--secondary)" radius={4}>
+                    <LabelList
+                      dataKey="label"
+                      content={(props) => {
+                        const { x, y, height, value } = props;
+                        const xOffset = (typeof x === 'number' ? x : 0) + 8;
+                        const yOffset = (typeof y === 'number' ? y : 0);
+                        const centerY = yOffset + (typeof height === 'number' ? height : 0) / 2;
 
-                          return (
-                            <g>
-                              <image
-                                href={`https://flagsapi.com/${value}/flat/64.png`}
-                                x={xOffset}
-                                y={centerY - 10}
-                                height="20"
-                                width="20"
-                                preserveAspectRatio="xMidYMid slice"
-                              />
-                              <text
-                                x={xOffset + 35}
-                                y={centerY}
-                                dominantBaseline="middle"
-                                fill="currentColor"
-                                className="fill-primary font-bold"
-                                fontSize={12}
-                              >
-                                {value}
-                              </text>
-                            </g>
-                          );
-                        }}
-                      />
-                      <LabelList
-                        dataKey="visitors"
-                        content={({ y, height, value }) => {
-                          const numericY = typeof y === 'string' ? parseFloat(y) : (typeof y === 'number' ? y : 0);
-                          const numericHeight = typeof height === 'string' ? parseFloat(height) : (typeof height === 'number' ? height : 0);
-                          const centerY = numericY + numericHeight / 2;
-                          const rightEdgeX = (countriesChartWidth || 0) - 30;
-                          return (
+                        return (
+                          <g>
+                            <image
+                              href={`https://flagsapi.com/${value}/flat/64.png`}
+                              x={xOffset}
+                              y={centerY - 10}
+                              height="20"
+                              width="20"
+                              preserveAspectRatio="xMidYMid slice"
+                            />
                             <text
-                              x={rightEdgeX}
+                              x={xOffset + 35}
                               y={centerY}
                               dominantBaseline="middle"
-                              textAnchor="end"
-                              fill="white"
-                              fontSize={14}
-                              className="fill-muted-foreground font-bold"
+                              fill="currentColor"
+                              className="fill-primary font-bold"
+                              fontSize={12}
                             >
                               {value}
                             </text>
-                          );
-                        }}
-                      />
-                    </Bar>
-                  </BarChart>
-                </ChartContainer>
-              </div>
+                          </g>
+                        );
+                      }}
+                    />
+                    <LabelList
+                      dataKey="visitors"
+                      content={({ y, height, value }) => {
+                        const numericY = typeof y === 'string' ? parseFloat(y) : (typeof y === 'number' ? y : 0);
+                        const numericHeight = typeof height === 'string' ? parseFloat(height) : (typeof height === 'number' ? height : 0);
+                        const centerY = numericY + numericHeight / 2;
+                        const rightEdgeX = (countriesChartWidth || 0) - 30;
+                        return (
+                          <text
+                            x={rightEdgeX}
+                            y={centerY}
+                            dominantBaseline="middle"
+                            textAnchor="end"
+                            fill="white"
+                            fontSize={14}
+                            className="fill-muted-foreground font-bold"
+                          >
+                            {value}
+                          </text>
+                        );
+                      }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </Section>
       </div>
 
       {/* Bandwidth Chart */}
-      <Card className="rounded-sm bg-card border-border">
-        <CardHeader>
-          <div className="grid gap-1">
-            <CardTitle className="text-base font-medium text-white">Bandwidth</CardTitle>
-            <CardDescription className="text-muted-foreground">In gigabytes (GB)</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="aspect-auto h-[300px] w-full">
-            <AreaChart data={data} margin={{ left: -40, right: 20, top: 20, bottom: 20 }}>
-              <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis
-                dataKey="timestamp"
-                tickFormatter={formatDate}
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-              />
-              <ChartTooltip content={<ChartTooltipContent labelFormatter={formatDate} />} />
-              <Area
-                dataKey="bandwidth_gb"
-                type="monotone"
-                fill="transparent"
-                stroke="var(--primary)"
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+      <Section title="Bandwidth" description="In gigabytes (GB)" icon="fa-solid fa-gauge-high">
+        <ChartContainer config={chartConfig} className="aspect-auto h-[300px] w-full">
+          <AreaChart data={data} margin={{ left: -40, right: 20, top: 20, bottom: 20 }}>
+            <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
+            <XAxis
+              dataKey="timestamp"
+              tickFormatter={formatDate}
+              tickLine={false}
+              axisLine={false}
+              tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+            />
+            <ChartTooltip content={<ChartTooltipContent labelFormatter={formatDate} />} />
+            <Area
+              dataKey="bandwidth_gb"
+              type="monotone"
+              fill="transparent"
+              stroke="var(--primary)"
+              strokeWidth={2}
+            />
+          </AreaChart>
+        </ChartContainer>
+      </Section>
 
       {/* Browsers & Operating Systems */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">
-        <Card className="rounded-sm bg-card border-border w-full min-w-0">
-          <CardHeader>
-            <CardTitle className="text-white">Top Browsers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-              <div ref={browsersChartRef}>
-                <ChartContainer
-                  config={chartConfig}
-                  className="w-full"
-                  style={{ height: `${browsersData.length * 45}px` }}>
-                  <BarChart data={browsersData} layout="vertical" margin={{ left: 0, right: 80 }}>
-                    <YAxis dataKey="label" type="category" hide />
-                    <XAxis type="number" hide />
-                    <Bar barSize={24} dataKey="visitors" fill="var(--secondary)" radius={4}>
-                      <LabelList dataKey="label" position="insideLeft" className="fill-primary font-semibold" fontSize={14} />
-                      <LabelList
-                        dataKey="visitors"
-                        content={({ y, height, value }) => {
-                          const numericY = typeof y === 'string' ? parseFloat(y) : (typeof y === 'number' ? y : 0);
-                          const numericHeight = typeof height === 'string' ? parseFloat(height) : (typeof height === 'number' ? height : 0);
-                          const centerY = numericY + numericHeight / 2;
-                          const rightEdgeX = (browsersChartWidth || 0) - 30;
-                          return (
-                            <text
-                              x={rightEdgeX}
-                              y={centerY}
-                              dominantBaseline="middle"
-                              textAnchor="end"
-                              fill="white"
-                              fontSize={14}
-                              className="fill-muted-foreground font-bold"
-                            >
-                              {value}
-                            </text>
-                          );
-                        }}
-                      />
-                    </Bar>
-                  </BarChart>
-                </ChartContainer>
-              </div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <Section title="Top browsers" icon="fa-solid fa-window-maximize" className="min-w-0">
+          <div className="custom-scrollbar h-[250px] overflow-y-auto pr-2">
+            <div ref={browsersChartRef}>
+              <ChartContainer
+                config={chartConfig}
+                className="w-full"
+                style={{ height: `${browsersData.length * 45}px` }}>
+                <BarChart data={browsersData} layout="vertical" margin={{ left: 0, right: 80 }}>
+                  <YAxis dataKey="label" type="category" hide />
+                  <XAxis type="number" hide />
+                  <Bar barSize={24} dataKey="visitors" fill="var(--secondary)" radius={4}>
+                    <LabelList dataKey="label" position="insideLeft" className="fill-primary font-semibold" fontSize={14} />
+                    <LabelList
+                      dataKey="visitors"
+                      content={({ y, height, value }) => {
+                        const numericY = typeof y === 'string' ? parseFloat(y) : (typeof y === 'number' ? y : 0);
+                        const numericHeight = typeof height === 'string' ? parseFloat(height) : (typeof height === 'number' ? height : 0);
+                        const centerY = numericY + numericHeight / 2;
+                        const rightEdgeX = (browsersChartWidth || 0) - 30;
+                        return (
+                          <text
+                            x={rightEdgeX}
+                            y={centerY}
+                            dominantBaseline="middle"
+                            textAnchor="end"
+                            fill="white"
+                            fontSize={14}
+                            className="fill-muted-foreground font-bold"
+                          >
+                            {value}
+                          </text>
+                        );
+                      }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </Section>
 
-        <Card className="rounded-sm bg-card border-border w-full min-w-0">
-          <CardHeader>
-            <CardTitle className="text-white">Top Operating Systems</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-              <div ref={osChartRef} >
-                <ChartContainer config={chartConfig}
-                  className="w-full"
-                  style={{ height: `${osData.length * 45}px` }}>
-                  <BarChart data={osData} layout="vertical" margin={{ left: 0, right: 80 }} barCategoryGap={4}>
-                    <YAxis dataKey="label" type="category" hide />
-                    <XAxis type="number" hide />
-                    <Bar barSize={32} dataKey="visitors" fill="var(--secondary)" radius={4}>
-                      <LabelList dataKey="label" position="insideLeft" className="fill-primary font-semibold" fontSize={14} />
-                      <LabelList
-                        dataKey="visitors"
-                        content={({ y, height, value }) => {
-                          const numericY = typeof y === 'string' ? parseFloat(y) : (typeof y === 'number' ? y : 0);
-                          const numericHeight = typeof height === 'string' ? parseFloat(height) : (typeof height === 'number' ? height : 0);
-                          const centerY = numericY + numericHeight / 2;
-                          const rightEdgeX = (osChartWidth || 0) - 30;
-                          return (
-                            <text
-                              x={rightEdgeX}
-                              y={centerY}
-                              dominantBaseline="middle"
-                              textAnchor="end"
-                              fill="white"
-                              fontSize={14}
-                              className="fill-muted-foreground font-bold"
-                            >
-                              {value}
-                            </text>
-                          );
-                        }}
-                      />
-                    </Bar>
-                  </BarChart>
-                </ChartContainer>
-              </div>
+        <Section title="Top operating systems" icon="fa-solid fa-microchip" className="min-w-0">
+          <div className="custom-scrollbar h-[250px] overflow-y-auto pr-2">
+            <div ref={osChartRef} >
+              <ChartContainer config={chartConfig}
+                className="w-full"
+                style={{ height: `${osData.length * 45}px` }}>
+                <BarChart data={osData} layout="vertical" margin={{ left: 0, right: 80 }} barCategoryGap={4}>
+                  <YAxis dataKey="label" type="category" hide />
+                  <XAxis type="number" hide />
+                  <Bar barSize={32} dataKey="visitors" fill="var(--secondary)" radius={4}>
+                    <LabelList dataKey="label" position="insideLeft" className="fill-primary font-semibold" fontSize={14} />
+                    <LabelList
+                      dataKey="visitors"
+                      content={({ y, height, value }) => {
+                        const numericY = typeof y === 'string' ? parseFloat(y) : (typeof y === 'number' ? y : 0);
+                        const numericHeight = typeof height === 'string' ? parseFloat(height) : (typeof height === 'number' ? height : 0);
+                        const centerY = numericY + numericHeight / 2;
+                        const rightEdgeX = (osChartWidth || 0) - 30;
+                        return (
+                          <text
+                            x={rightEdgeX}
+                            y={centerY}
+                            dominantBaseline="middle"
+                            textAnchor="end"
+                            fill="white"
+                            fontSize={14}
+                            className="fill-muted-foreground font-bold"
+                          >
+                            {value}
+                          </text>
+                        );
+                      }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </Section>
       </div>
     </div>
   )

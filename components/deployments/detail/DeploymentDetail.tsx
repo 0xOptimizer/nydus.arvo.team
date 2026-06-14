@@ -6,6 +6,8 @@ import { useStreamDock } from '@/context/StreamDockContext';
 import { getDeploymentStatus } from '@/app/actions/deployment-control';
 import { triggerRebuild } from '@/app/actions/deployments';
 import { PageShell } from '@/components/PageShell';
+import { Section } from '@/components/ui/section';
+import { EmptyState } from '@/components/EmptyState';
 import { AnimatedStatusBadge } from '@/components/AnimatedStatusBadge';
 import { AnimatedStatusChip } from '@/components/AnimatedStatusChip';
 import { Button } from '@/components/ui/button';
@@ -81,11 +83,11 @@ export function DeploymentDetail({ deployment }: { deployment: any }) {
         <>
             <Button asChild variant="outline" size="sm">
                 <a href={`https://${fqdn}`} target="_blank" rel="noopener noreferrer">
-                    Open site <i className="fa-solid fa-arrow-up-right-from-square ml-1.5 text-xs" />
+                    <i className="fa-solid fa-arrow-up-right-from-square" /> Open site
                 </a>
             </Button>
-            <Button size="sm" onClick={handleRebuild} pending={rebuilding} pendingText="Queuing…">
-                <i className="fa-solid fa-rotate mr-2" />Rebuild
+            <Button ripple size="sm" onClick={handleRebuild} pending={rebuilding} pendingText="Queuing…">
+                <i className="fa-solid fa-rotate" /> Rebuild
             </Button>
         </>
     );
@@ -99,22 +101,24 @@ export function DeploymentDetail({ deployment }: { deployment: any }) {
             actions={actions}
         >
             {/* Quick facts */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <Fact label="Stack" value={<Badge variant="secondary" className="uppercase font-normal text-xs">{stack}</Badge>} />
-                <Fact label="Port" value={<span className="font-mono text-sm">{status?.assigned_port ?? deployment.assigned_port ?? '—'}</span>} />
-                <Fact label="SSL" value={<span className="font-mono text-sm">{status?.ssl?.days_left != null ? `${status.ssl.days_left}d left` : '—'}</span>} />
-                <Fact label="Disk" value={<span className="font-mono text-sm">{formatBytes(status?.disk_bytes)}</span>} />
-                {status?.pm2 && (
-                    <>
-                        <Fact label="Uptime" value={<span className="font-mono text-sm">{formatUptime(status.pm2.uptime, { since: true })}</span>} />
-                        <Fact label="Restarts" value={<span className="font-mono text-sm">{status.pm2.restarts ?? 0}</span>} />
-                        <Fact label="CPU" value={<span className="font-mono text-sm">{status.pm2.cpu ?? 0}%</span>} />
-                        <Fact label="Memory" value={<span className="font-mono text-sm">{formatBytes(status.pm2.memory)}</span>} />
-                    </>
-                )}
-            </div>
+            <Section title="Runtime" description="Live process and certificate stats" icon="fa-solid fa-gauge-high">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <Fact label="Stack" value={<Badge variant="secondary" className="uppercase font-normal text-xs">{stack}</Badge>} />
+                    <Fact label="Port" value={<span className="font-mono text-sm">{status?.assigned_port ?? deployment.assigned_port ?? '—'}</span>} />
+                    <Fact label="SSL" value={<span className="font-mono text-sm">{status?.ssl?.days_left != null ? `${status.ssl.days_left}d left` : '—'}</span>} />
+                    <Fact label="Disk" value={<span className="font-mono text-sm">{formatBytes(status?.disk_bytes)}</span>} />
+                    {status?.pm2 && (
+                        <>
+                            <Fact label="Uptime" value={<span className="font-mono text-sm">{formatUptime(status.pm2.uptime, { since: true })}</span>} />
+                            <Fact label="Restarts" value={<span className="font-mono text-sm">{status.pm2.restarts ?? 0}</span>} />
+                            <Fact label="CPU" value={<span className="font-mono text-sm">{status.pm2.cpu ?? 0}%</span>} />
+                            <Fact label="Memory" value={<span className="font-mono text-sm">{formatBytes(status.pm2.memory)}</span>} />
+                        </>
+                    )}
+                </div>
+            </Section>
 
-            <Tabs defaultValue={isUnhealthy ? 'diagnose' : 'logs'} className="w-full">
+            <Tabs defaultValue={isUnhealthy ? 'diagnose' : 'logs'} className="w-full space-y-4">
                 <TabsList className="bg-card border border-border">
                     <TabsTrigger value="logs">Logs</TabsTrigger>
                     <TabsTrigger value="env">Env</TabsTrigger>
@@ -126,20 +130,28 @@ export function DeploymentDetail({ deployment }: { deployment: any }) {
                     </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="logs" className="rounded-sm border border-border bg-card p-4">
-                    <LogsTab deploymentUuid={uuid} stack={stack} />
+                <TabsContent value="logs">
+                    <Section title="Logs" description="Live and replayed output for this deployment" icon="fa-solid fa-terminal">
+                        <LogsTab deploymentUuid={uuid} stack={stack} />
+                    </Section>
                 </TabsContent>
-                <TabsContent value="env" className="rounded-sm border border-border bg-card p-4">
-                    <EnvEditor deploymentUuid={uuid} />
+                <TabsContent value="env">
+                    <Section title="Environment" description="Variables written to this deployment's env file" icon="fa-solid fa-file-code">
+                        <EnvEditor deploymentUuid={uuid} />
+                    </Section>
                 </TabsContent>
-                <TabsContent value="webhook" className="rounded-sm border border-border bg-card p-4">
-                    <WebhookTab deploymentUuid={uuid} />
+                <TabsContent value="webhook">
+                    <Section title="Webhook" description="Auto-deploy on push to your branch" icon="fa-solid fa-code-branch">
+                        <WebhookTab deploymentUuid={uuid} />
+                    </Section>
                 </TabsContent>
                 <TabsContent value="actions">
                     <ActionsTab deploymentUuid={uuid} stack={stack} dnsMode={dnsMode} />
                 </TabsContent>
-                <TabsContent value="diagnose" className="rounded-sm border border-border bg-card p-4">
-                    <DiagnosticsTab deploymentUuid={uuid} />
+                <TabsContent value="diagnose">
+                    <Section title="Diagnostics" description="Crash output and health checks for troubleshooting" icon="fa-solid fa-stethoscope">
+                        <DiagnosticsTab deploymentUuid={uuid} />
+                    </Section>
                 </TabsContent>
             </Tabs>
         </PageShell>
@@ -148,10 +160,23 @@ export function DeploymentDetail({ deployment }: { deployment: any }) {
 
 function Fact({ label, value }: { label: string; value: React.ReactNode }) {
     return (
-        <div className="rounded-sm border border-border bg-card p-3">
+        <div className="rounded-sm border border-border bg-background/40 p-3">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
             <div className="mt-1">{value}</div>
         </div>
+    );
+}
+
+/** Full-width not-found state for an unknown deployment uuid. */
+export function DeploymentNotFound() {
+    return (
+        <PageShell title="Deployment" backHref="/deployments">
+            <EmptyState
+                icon="fa-solid fa-circle-question"
+                title="Deployment not found"
+                hint="It may have been deleted, or the ID is incorrect."
+            />
+        </PageShell>
     );
 }
 

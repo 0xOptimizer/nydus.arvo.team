@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { createService, updateService, type ServicePayload } from '@/app/actions/services';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Field, FormGrid } from '@/components/ui/field';
+import {
+    Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@/components/ui/select';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger,
 } from '@/components/ui/dialog';
@@ -95,22 +99,26 @@ export function ServiceDialog({
         else setError(res.error || `Failed to ${isEdit ? 'update' : 'create'} service.`);
     };
 
-    const field = (label: string, key: keyof Form, placeholder = '') => (
-        <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{label}</label>
+    const textField = (
+        label: string,
+        key: keyof Form,
+        placeholder = '',
+        opts: { hint?: string; required?: boolean; className?: string } = {},
+    ) => (
+        <Field label={label} hint={opts.hint} required={opts.required} className={opts.className}>
             <Input
                 value={(form[key] as string) ?? ''}
                 onChange={e => set(key, e.target.value)}
                 placeholder={placeholder}
                 className="font-mono text-xs"
             />
-        </div>
+        </Field>
     );
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogTrigger asChild>
-                {trigger ?? <Button size="sm"><i className="fa-solid fa-plus mr-2" />Add service</Button>}
+                {trigger ?? <Button size="sm"><i className="fa-solid fa-plus" />Add service</Button>}
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
@@ -131,9 +139,12 @@ export function ServiceDialog({
                     </Alert>
                 )}
 
-                <div className="grid grid-cols-2 gap-3 py-2">
-                    <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Name *</label>
+                <FormGrid cols={2}>
+                    <Field
+                        label="Name"
+                        required
+                        hint={isEdit ? 'Name is unique and can’t be changed here.' : undefined}
+                    >
                         <Input
                             value={form.name}
                             onChange={e => set('name', e.target.value)}
@@ -141,35 +152,37 @@ export function ServiceDialog({
                             className="font-mono text-xs"
                             disabled={isEdit}
                         />
-                        {isEdit && <p className="mt-1 text-[10px] text-muted-foreground">Name is unique and can’t be changed here.</p>}
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Type *</label>
-                        <select
-                            value={form.service_type}
-                            onChange={e => set('service_type', e.target.value)}
-                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                    </div>
-                    {field('pm2 name', 'pm2_name', 'arvo.team')}
-                    {field('systemd unit', 'systemd_unit', 'nydus.service')}
-                    {field('FQDN', 'fqdn', 'arvo.team')}
-                    {field('Health URL', 'health_url', 'https://arvo.team')}
-                    <div className={cn(needsRecoveryFields && 'rounded-sm ring-1 ring-amber-500/30 p-0.5')}>
-                        {field('Deploy path', 'deploy_path', '/var/www/arvo.team')}
-                    </div>
-                    <div className={cn(needsRecoveryFields && 'rounded-sm ring-1 ring-amber-500/30 p-0.5')}>
-                        {field('Port', 'port', '3001')}
-                    </div>
-                    {field('Git URL', 'git_url')}
-                    {field('Branch', 'branch', 'main')}
-                </div>
+                    </Field>
+                    <Field label="Type" required>
+                        <Select value={form.service_type} onValueChange={v => set('service_type', v)}>
+                            <SelectTrigger className="text-xs">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {TYPES.map(t => (
+                                    <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </Field>
+                    {textField('pm2 name', 'pm2_name', 'arvo.team')}
+                    {textField('systemd unit', 'systemd_unit', 'nydus.service')}
+                    {textField('FQDN', 'fqdn', 'arvo.team')}
+                    {textField('Health URL', 'health_url', 'https://arvo.team')}
+                    {textField('Deploy path', 'deploy_path', '/var/www/arvo.team', {
+                        className: cn(needsRecoveryFields && 'rounded-sm p-1 ring-1 ring-amber-500/30'),
+                    })}
+                    {textField('Port', 'port', '3001', {
+                        className: cn(needsRecoveryFields && 'rounded-sm p-1 ring-1 ring-amber-500/30'),
+                    })}
+                    {textField('Git URL', 'git_url')}
+                    {textField('Branch', 'branch', 'main')}
+                </FormGrid>
 
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>
                     <Button
+                        ripple
                         onClick={submit}
                         disabled={!form.name.trim()}
                         pending={busy}

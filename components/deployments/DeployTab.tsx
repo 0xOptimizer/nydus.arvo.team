@@ -8,27 +8,25 @@ import {
     triggerDeploy, triggerRebuild,
     getEnvLines, updateEnvLine, addEnvLine, deleteEnvLine,
 } from '@/app/actions/deployments';
-import { motion, AnimatePresence } from 'motion/react';
 import { AnimatedStatusBadge } from '@/components/AnimatedStatusBadge';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { DeployInstructions } from '@/components/deployments/DeployInstructions';
 import { formatDateTime } from '@/lib/format';
-import { deploymentFqdn, dnsModeLabel } from '@/lib/deployments';
-import { staggerContainer, staggerItem, listItem } from '@/lib/motion';
+import { deploymentFqdn, deploymentName, dnsModeLabel } from '@/lib/deployments';
+import { PageShell }              from '@/components/PageShell';
+import { Section }                from '@/components/ui/section';
+import { DataTable, type Column } from '@/components/ui/data-table';
+import { Field, FormGrid }        from '@/components/ui/field';
 import { Input }                  from '@/components/ui/input';
 import { Badge }                  from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button }                 from '@/components/ui/button';
 import { SegmentedControl }       from '@/components/ui/segmented';
-import { Separator }              from '@/components/ui/separator';
-import { TableRowsSkeleton }      from '@/components/ui/skeleton';
 import { EmptyState }             from '@/components/EmptyState';
 import {
     Dialog, DialogContent, DialogHeader,
     DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const SUBDOMAIN_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const ENV_KEY_RE   = /^[A-Z_][A-Z0-9_]*$/;
@@ -66,7 +64,6 @@ export default function DeployTab() {
     const { deployments, projects, actorId, loading, refresh } = useDeploymentContext();
     const { startRun } = useStreamDock();
 
-    const [formCollapsed, setFormCollapsed] = useState(true);
     const [error, setError]                 = useState<string | null>(null);
     const [successMsg, setSuccess]          = useState<string | null>(null);
     const [busyKey, setBusyKey]             = useState<string | null>(null);
@@ -248,10 +245,197 @@ export default function DeployTab() {
         setEnvBusy(null);
     };
 
-    return (
-        <TooltipProvider>
-        <div className="space-y-4">
+    // --- Summary metrics ---
+    const summary = [
+        { label: 'Total',     value: deployments.length,                                       color: 'text-foreground' },
+        { label: 'Active',    value: deployments.filter(d => d.status === 'active').length,    color: 'text-green-500' },
+        { label: 'Unhealthy', value: deployments.filter(d => d.status === 'unhealthy').length, color: 'text-amber-500' },
+        { label: 'Failed',    value: deployments.filter(d => d.status === 'failed').length,    color: 'text-red-500' },
+        { label: 'Pending',   value: deployments.filter(d => d.status === 'pending').length,   color: 'text-yellow-500' },
+    ];
 
+    // --- Table columns ---
+    const projectColumns: Column<any>[] = [
+        {
+            key: 'project',
+            header: 'Project',
+            render: (p) => (
+                <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-foreground">{p.name}</div>
+                    <div className="truncate text-[10px] text-muted-foreground">
+                        {p.owner_login}{p.default_branch ? ` • ${p.default_branch}` : ''}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: 'action',
+            header: 'Action',
+            align: 'right',
+            render: (p) => (
+                <Button ripple size="sm" onClick={() => openDeployDialog(p)}>
+                    <i className="fa-solid fa-rocket" /> Deploy
+                </Button>
+            ),
+        },
+    ];
+
+    const deploymentColumns: Column<any>[] = [
+        {
+            key: 'subdomain',
+            header: 'Domain',
+            render: (d) => (
+                <a
+                    href={`https://${deploymentFqdn(d)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 font-mono text-sm text-foreground hover:underline"
+                >
+                    {deploymentFqdn(d)}
+                    <i className="fa-solid fa-arrow-up-right-from-square text-[10px] text-muted-foreground" />
+                </a>
+            ),
+        },
+        {
+            key: 'stack',
+            header: 'Stack',
+            render: (d) => (
+                <div className="flex items-center gap-1.5">
+                    <Badge variant="secondary" className="text-[10px] font-normal uppercase">
+                        {d.tech_stack}
+                    </Badge>
+                    {d.dns_mode && d.dns_mode !== 'subdomain' && (
+                        <Badge variant="outline" className="text-[10px] font-normal uppercase">
+                            {dnsModeLabel(d.dns_mode)}
+                        </Badge>
+                    )}
+                </div>
+            ),
+        },
+        {
+            key: 'port',
+            header: 'Port',
+            render: (d) => (
+                <span className="font-mono text-xs text-muted-foreground">{d.assigned_port ?? '—'}</span>
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            render: (d) => <AnimatedStatusBadge status={d.status} />,
+        },
+        {
+            key: 'deployed',
+            header: 'Deployed',
+            render: (d) => (
+                <span className="whitespace-nowrap text-xs text-muted-foreground">{formatDateTime(d.deployed_at)}</span>
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            align: 'right',
+            render: (d) => (
+                <div className="flex justify-end gap-2">
+                    <Button asChild variant="ghost" size="sm">
+                        <Link href={`/deployments/${d.deployment_uuid}`}>
+                            <i className="fa-solid fa-sliders" /> Manage
+                        </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => openEnvDialog(d)}>
+                        <i className="fa-solid fa-file-code" /> Env
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openRebuildDialog(d)}
+                        disabled={d.status === 'pending'}
+                        pending={busyKey === `rebuild-${d.deployment_uuid}`}
+                        pendingText="Rebuilding…"
+                    >
+                        <i className="fa-solid fa-rotate" /> Rebuild
+                    </Button>
+                </div>
+            ),
+        },
+    ];
+
+    const envColumns: Column<{ key: string; value: string }>[] = [
+        {
+            key: 'key',
+            header: 'Key',
+            className: 'w-52',
+            render: ({ key }) => <span className="font-mono text-xs text-foreground">{key}</span>,
+        },
+        {
+            key: 'value',
+            header: 'Value',
+            render: ({ key, value }) =>
+                editingKey === key ? (
+                    <Input
+                        value={editingValue}
+                        onChange={e => setEditingValue(e.target.value)}
+                        className="h-7 font-mono text-xs"
+                        disabled={envBusy === key}
+                        autoFocus
+                    />
+                ) : (
+                    <span className="font-mono text-xs text-muted-foreground break-all">
+                        {value || <span className="italic opacity-40">empty</span>}
+                    </span>
+                ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            align: 'right',
+            render: ({ key, value }) => (
+                <div className="flex justify-end gap-1">
+                    {editingKey === key ? (
+                        <>
+                            <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => handleEnvSave(key)} pending={envBusy === key}>
+                                <i className="fa-solid fa-check" />
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => setEditingKey(null)} disabled={envBusy === key}>
+                                <i className="fa-solid fa-xmark" />
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => handleEnvEdit(key, value)} disabled={!!envBusy}>
+                                <i className="fa-solid fa-pen" />
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => handleEnvDelete(key)} disabled={!!envBusy && envBusy !== key} pending={envBusy === key}>
+                                <i className="fa-solid fa-trash" />
+                            </Button>
+                        </>
+                    )}
+                </div>
+            ),
+        },
+    ];
+
+    return (
+        <PageShell
+            title="Deployments"
+            description="Deploy attached projects and manage their domains, builds, and runtime."
+            meta={
+                <Badge variant="secondary" className="text-[10px] uppercase">
+                    {deployments.length} live
+                </Badge>
+            }
+            actions={
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={refresh}
+                    pending={loading}
+                    pendingText="Refreshing…"
+                >
+                    <i className="fa-solid fa-rotate" /> Refresh
+                </Button>
+            }
+        >
             {error && (
                 <Alert variant="destructive">
                     <AlertDescription>{error}</AlertDescription>
@@ -263,254 +447,71 @@ export default function DeployTab() {
                 </Alert>
             )}
 
-            <div className="flex flex-col lg:flex-row gap-4">
+            <DeployInstructions />
 
-                {/* Left column */}
-                <div className="flex-1 space-y-4">
-
-                    <DeployInstructions />
-
-                    {/* Deploy new project card */}
-                    <div className="border border-border rounded-sm bg-card">
-                        <div
-                            className="p-4 cursor-pointer hover:bg-secondary/30 transition-colors"
-                            onClick={() => setFormCollapsed(!formCollapsed)}
-                        >
-                            <h3 className="text-sm font-medium">
-                                Deploy a Project
-                                {formCollapsed
-                                    ? <i className="fa-solid fa-chevron-right ml-2 text-xs text-muted-foreground inline" />
-                                    : <i className="fa-solid fa-chevron-down ml-2 text-xs text-muted-foreground inline" />
-                                }
-                            </h3>
+            {/* Summary */}
+            <Section title="Overview" description="Status of your deployments at a glance" icon="fa-solid fa-chart-simple">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                    {summary.map(({ label, value, color }) => (
+                        <div key={label} className="rounded-sm border border-border bg-background/40 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
+                            <AnimatedNumber value={value} className={`mt-1.5 block text-2xl font-bold ${color}`} />
                         </div>
-
-                        {!formCollapsed && (
-                            <>
-                                <Separator />
-                                {loading && projects.length === 0 ? (
-                                    <TableRowsSkeleton rows={3} cols={4} />
-                                ) : projects.length === 0 ? (
-                                    <div className="p-4 sm:p-6">
-                                        <EmptyState
-                                            icon="fa-solid fa-folder-open"
-                                            title="No attached projects found"
-                                            hint="Attach a project to deploy it here."
-                                        />
-                                    </div>
-                                ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Project</TableHead>
-                                                <TableHead>Owner</TableHead>
-                                                <TableHead>Branch</TableHead>
-                                                <TableHead className="text-right pr-4">Action</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <motion.tbody
-                                            className="[&_tr:last-child]:border-0"
-                                            variants={staggerContainer}
-                                            initial="hidden"
-                                            animate="show"
-                                        >
-                                            {projects.map((p: any) => (
-                                                <motion.tr
-                                                    key={p.project_uuid}
-                                                    variants={staggerItem}
-                                                    className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
-                                                >
-                                                    <TableCell className="font-mono text-sm py-2.5">
-                                                        {p.name}
-                                                    </TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground py-2.5">
-                                                        {p.owner_login}
-                                                    </TableCell>
-                                                    <TableCell className="font-mono text-xs text-muted-foreground py-2.5">
-                                                        {p.default_branch}
-                                                    </TableCell>
-                                                    <TableCell className="text-right pr-4 py-2.5">
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => openDeployDialog(p)}
-                                                        >
-                                                            Deploy
-                                                        </Button>
-                                                    </TableCell>
-                                                </motion.tr>
-                                            ))}
-                                        </motion.tbody>
-                                    </Table>
-                                )}
-                            </>
-                        )}
-                    </div>
-
-                    {/* Deployments table */}
-                    <div className="border border-border rounded-sm bg-card">
-                        <div className="flex items-center justify-between border-b border-border p-4">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Deployments</p>
-                        </div>
-
-                        {loading && deployments.length === 0 ? (
-                            <TableRowsSkeleton rows={5} cols={6} />
-                        ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Subdomain</TableHead>
-                                        <TableHead>Stack</TableHead>
-                                        <TableHead>Port</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Deployed</TableHead>
-                                        <TableHead className="text-right pr-4">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <motion.tbody
-                                    className="[&_tr:last-child]:border-0"
-                                    variants={staggerContainer}
-                                    initial="hidden"
-                                    animate="show"
-                                >
-                                  <AnimatePresence initial={false}>
-                                    {deployments.map((d: any) => (
-                                        <motion.tr
-                                            key={d.deployment_uuid}
-                                            layout
-                                            variants={listItem}
-                                            initial="hidden"
-                                            animate="show"
-                                            exit="exit"
-                                            className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
-                                        >
-                                            <TableCell className="py-2.5">
-                                                <a
-                                                    href={`https://${deploymentFqdn(d)}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="font-mono text-sm hover:underline inline-flex items-center gap-1.5"
-                                                >
-                                                    {deploymentFqdn(d)}
-                                                    <i className="fa-solid fa-arrow-up-right-from-square text-xs text-muted-foreground" />
-                                                </a>
-                                            </TableCell>
-                                            <TableCell className="py-2.5">
-                                                <div className="flex items-center gap-1.5">
-                                                    <Badge variant="secondary" className="font-normal text-xs uppercase">
-                                                        {d.tech_stack}
-                                                    </Badge>
-                                                    {d.dns_mode && d.dns_mode !== 'subdomain' && (
-                                                        <Badge variant="outline" className="font-normal text-[10px] uppercase">
-                                                            {dnsModeLabel(d.dns_mode)}
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="font-mono text-xs text-muted-foreground py-2.5">
-                                                {d.assigned_port ?? '—'}
-                                            </TableCell>
-                                            <TableCell className="py-2.5">
-                                                <AnimatedStatusBadge status={d.status} />
-                                            </TableCell>
-                                            <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
-                                                {formatDateTime(d.deployed_at)}
-                                            </TableCell>
-                                            <TableCell className="text-right pr-4 py-2.5">
-                                                <div className="flex justify-end gap-1">
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Link href={`/deployments/${d.deployment_uuid}`}>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="h-7 w-7 p-0"
-                                                                >
-                                                                    <i className="fa-solid fa-sliders" />
-                                                                </Button>
-                                                            </Link>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="top">
-                                                            Manage deployment
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <span>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="h-7 w-7 p-0"
-                                                                    onClick={() => openEnvDialog(d)}
-                                                                >
-                                                                    <i className="fa-solid fa-file-code" />
-                                                                </Button>
-                                                            </span>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="top">
-                                                            Environment variables
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <span>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="h-7 w-7 p-0"
-                                                                    onClick={() => openRebuildDialog(d)}
-                                                                    disabled={d.status === 'pending'}
-                                                                    pending={busyKey === `rebuild-${d.deployment_uuid}`}
-                                                                >
-                                                                    <i className="fa-solid fa-rotate" />
-                                                                </Button>
-                                                            </span>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="top">Rebuild</TooltipContent>
-                                                    </Tooltip>
-                                                </div>
-                                            </TableCell>
-                                        </motion.tr>
-                                    ))}
-                                  </AnimatePresence>
-                                </motion.tbody>
-                            </Table>
-                        )}
-                        {!loading && deployments.length === 0 && (
-                            <div className="p-4 sm:p-6">
-                                <EmptyState
-                                    icon="fa-solid fa-rocket"
-                                    title="No deployments yet"
-                                    hint="Deploy a project above to see it listed here."
-                                />
-                            </div>
-                        )}
-                    </div>
+                    ))}
                 </div>
+            </Section>
 
-                {/* Right column */}
-                <div className="w-full lg:w-80 space-y-4">
-                    <div className="border border-border rounded-sm bg-card">
-                        <div className="flex items-center justify-between border-b border-border p-4">
-                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Summary</h3>
-                        </div>
-                        <div className="p-4 sm:p-6 space-y-3">
-                            {[
-                                { label: 'Total',     value: deployments.length,                                       color: '' },
-                                { label: 'Active',    value: deployments.filter(d => d.status === 'active').length,    color: 'text-green-500' },
-                                { label: 'Unhealthy', value: deployments.filter(d => d.status === 'unhealthy').length, color: 'text-amber-500' },
-                                { label: 'Failed',    value: deployments.filter(d => d.status === 'failed').length,    color: 'text-red-500' },
-                                { label: 'Pending',   value: deployments.filter(d => d.status === 'pending').length,   color: 'text-yellow-500' },
-                            ].map(({ label, value, color }) => (
-                                <div key={label} className="flex items-center justify-between">
-                                    <span className="text-xs text-muted-foreground">{label}</span>
-                                    <AnimatedNumber value={value} className={`text-sm font-medium ${color}`} />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {/* Deploy a project */}
+            <Section
+                title="Deploy a project"
+                description="Pick an attached repository to launch a new deployment"
+                icon="fa-solid fa-folder"
+                flush
+            >
+                <DataTable
+                    columns={projectColumns}
+                    rows={projects}
+                    getRowId={(p) => p.project_uuid}
+                    loading={loading}
+                    skeletonRows={3}
+                    empty={
+                        <EmptyState
+                            icon="fa-solid fa-folder-open"
+                            title="No attached projects"
+                            hint="Attach a GitHub repository on the Projects page to deploy it here."
+                            action={
+                                <Button asChild variant="outline" size="sm">
+                                    <Link href="/projects">
+                                        <i className="fa-solid fa-arrow-right" /> Go to Projects
+                                    </Link>
+                                </Button>
+                            }
+                        />
+                    }
+                />
+            </Section>
+
+            {/* Deployments */}
+            <Section
+                title="Deployments"
+                description="Live deployments and their runtime status"
+                icon="fa-solid fa-rocket"
+                flush
+            >
+                <DataTable
+                    columns={deploymentColumns}
+                    rows={deployments}
+                    getRowId={(d) => d.deployment_uuid}
+                    loading={loading}
+                    empty={
+                        <EmptyState
+                            icon="fa-solid fa-rocket"
+                            title="No deployments yet"
+                            hint="Deploy an attached project above to see it listed here."
+                        />
+                    }
+                />
+            </Section>
 
             {/* Deploy dialog (form only — logs stream in the bottom dock) */}
             <Dialog
@@ -532,26 +533,25 @@ export default function DeployTab() {
                             </Alert>
                         )}
 
-                        {/* DNS mode selector */}
-                        <div>
-                            <label className="block text-xs text-muted-foreground mb-1.5">Domain mode</label>
+                        <Field
+                            label="Domain mode"
+                            hint={DNS_MODE_OPTIONS.find(o => o.value === dnsMode)?.hint}
+                        >
                             <SegmentedControl
                                 options={DNS_MODE_OPTIONS.map(opt => ({ value: opt.value, label: opt.label }))}
                                 value={dnsMode}
                                 onChange={(v) => { setDnsMode(v); setTargetErr(''); }}
                                 disabled={deploying}
                             />
-                            <p className="mt-1.5 text-[11px] text-muted-foreground">
-                                {DNS_MODE_OPTIONS.find(o => o.value === dnsMode)?.hint}
-                            </p>
-                        </div>
+                        </Field>
 
                         {dnsMode === 'subdomain' ? (
-                            <div>
-                                <label className="block text-xs text-muted-foreground mb-1.5">
-                                    Subdomain{' '}
-                                    <span className="text-muted-foreground">(max 24 chars, lowercase)</span>
-                                </label>
+                            <Field
+                                label="Subdomain"
+                                hint="Max 24 characters, lowercase letters, numbers, and hyphens."
+                                error={targetErr || undefined}
+                                required
+                            >
                                 <div className="flex items-center gap-2">
                                     <Input
                                         value={subdomain}
@@ -560,12 +560,16 @@ export default function DeployTab() {
                                         className="font-mono"
                                         disabled={deploying}
                                     />
-                                    <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">.arvo.team</span>
+                                    <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">.arvo.team</span>
                                 </div>
-                            </div>
+                            </Field>
                         ) : (
-                            <div>
-                                <label className="block text-xs text-muted-foreground mb-1.5">Custom domain</label>
+                            <Field
+                                label="Custom domain"
+                                hint="A fully-qualified hostname, e.g. shop.client.com."
+                                error={targetErr || undefined}
+                                required
+                            >
                                 <Input
                                     value={domain}
                                     onChange={e => { setDomain(e.target.value.toLowerCase().trim()); setTargetErr(''); }}
@@ -573,9 +577,8 @@ export default function DeployTab() {
                                     className="font-mono"
                                     disabled={deploying}
                                 />
-                            </div>
+                            </Field>
                         )}
-                        {targetErr && <p className="text-xs text-destructive mt-1">{targetErr}</p>}
 
                         {dnsMode === 'external' && (
                             <Alert>
@@ -595,12 +598,13 @@ export default function DeployTab() {
                             Cancel
                         </Button>
                         <Button
+                            ripple
                             onClick={handleDeploy}
                             disabled={dnsMode === 'subdomain' ? !subdomain : !domain}
                             pending={deploying}
-                            pendingText="Starting..."
+                            pendingText="Starting…"
                         >
-                            Start Deployment
+                            <i className="fa-solid fa-rocket" /> Start deployment
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -613,10 +617,10 @@ export default function DeployTab() {
             >
                 <DialogContent className="sm:max-w-lg shadow-none">
                     <DialogHeader>
-                        <DialogTitle>Rebuild — {rebuildTarget?.subdomain}</DialogTitle>
+                        <DialogTitle>Rebuild — {rebuildTarget ? deploymentName(rebuildTarget) : ''}</DialogTitle>
                         <DialogDescription>
                             Re-runs install and build steps for{' '}
-                            <span className="font-mono">{rebuildTarget?.subdomain}.arvo.team</span>.
+                            <span className="font-mono">{rebuildTarget ? deploymentFqdn(rebuildTarget) : ''}</span>.
                             This does not affect your nginx or SSL configuration.
                         </DialogDescription>
                     </DialogHeader>
@@ -631,11 +635,12 @@ export default function DeployTab() {
                             Cancel
                         </Button>
                         <Button
+                            ripple
                             onClick={handleRebuild}
                             pending={busyKey === `rebuild-${rebuildTarget?.deployment_uuid}`}
-                            pendingText="Queuing..."
+                            pendingText="Queuing…"
                         >
-                            Rebuild
+                            <i className="fa-solid fa-rotate" /> Rebuild
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -648,171 +653,69 @@ export default function DeployTab() {
             >
                 <DialogContent className="sm:max-w-2xl shadow-none">
                     <DialogHeader>
-                        <DialogTitle>Environment Variables</DialogTitle>
+                        <DialogTitle>Environment variables</DialogTitle>
                         <DialogDescription>
-                            <span className="font-mono">{envDeployment?.subdomain}.arvo.team</span>
+                            <span className="font-mono">{envDeployment ? deploymentFqdn(envDeployment) : ''}</span>
                             {' · '}
                             <span className="font-mono text-xs">{envDeployment?.env_file_name}</span>
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="py-2">
-                        {envLoading ? (
-                            <TableRowsSkeleton rows={4} cols={3} />
-                        ) : (
-                            <>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-52">Key</TableHead>
-                                            <TableHead>Value</TableHead>
-                                            <TableHead className="w-20 text-right pr-2">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <motion.tbody
-                                        className="[&_tr:last-child]:border-0"
-                                        variants={staggerContainer}
-                                        initial="hidden"
-                                        animate="show"
-                                    >
-                                      <AnimatePresence initial={false}>
-                                        {envLines.map(({ key, value }) => (
-                                            <motion.tr
-                                                key={key}
-                                                layout
-                                                variants={listItem}
-                                                initial="hidden"
-                                                animate="show"
-                                                exit="exit"
-                                                className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
-                                            >
-                                                <TableCell className="font-mono text-xs py-2 align-middle">
-                                                    {key}
-                                                </TableCell>
-                                                <TableCell className="py-2 align-middle">
-                                                    {editingKey === key ? (
-                                                        <Input
-                                                            value={editingValue}
-                                                            onChange={e => setEditingValue(e.target.value)}
-                                                            className="font-mono text-xs h-7"
-                                                            disabled={envBusy === key}
-                                                            autoFocus
-                                                        />
-                                                    ) : (
-                                                        <span className="font-mono text-xs text-muted-foreground break-all">
-                                                            {value || (
-                                                                <span className="italic opacity-40">empty</span>
-                                                            )}
-                                                        </span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="py-2 text-right pr-2 align-middle">
-                                                    <div className="flex justify-end gap-1">
-                                                        {editingKey === key ? (
-                                                            <>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="h-6 w-6 p-0"
-                                                                    onClick={() => handleEnvSave(key)}
-                                                                    pending={envBusy === key}
-                                                                >
-                                                                    <i className="fa-solid fa-check" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="h-6 w-6 p-0"
-                                                                    onClick={() => setEditingKey(null)}
-                                                                    disabled={envBusy === key}
-                                                                >
-                                                                    <i className="fa-solid fa-xmark" />
-                                                                </Button>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="h-6 w-6 p-0"
-                                                                    onClick={() => handleEnvEdit(key, value)}
-                                                                    disabled={!!envBusy}
-                                                                >
-                                                                    <i className="fa-solid fa-pen" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                                                                    onClick={() => handleEnvDelete(key)}
-                                                                    disabled={!!envBusy && envBusy !== key}
-                                                                    pending={envBusy === key}
-                                                                >
-                                                                    <i className="fa-solid fa-trash" />
-                                                                </Button>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                            </motion.tr>
-                                        ))}
-                                        {envLines.length === 0 && (
-                                            <TableRow>
-                                                <TableCell
-                                                    colSpan={3}
-                                                    className="py-8 text-center text-xs text-muted-foreground"
-                                                >
-                                                    No environment variables found.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                      </AnimatePresence>
-                                    </motion.tbody>
-                                </Table>
+                    <div className="space-y-4 py-2">
+                        <div className="overflow-hidden rounded-sm border border-border">
+                            <DataTable
+                                columns={envColumns}
+                                rows={envLines}
+                                getRowId={(l) => l.key}
+                                loading={envLoading}
+                                skeletonRows={4}
+                                empty={
+                                    <EmptyState
+                                        icon="fa-solid fa-file-code"
+                                        title="No environment variables"
+                                        hint="Add a variable below to populate this deployment's env file."
+                                    />
+                                }
+                            />
+                        </div>
 
-                                <Separator className="my-3" />
-
-                                <div className="space-y-2">
-                                    <p className="text-xs text-muted-foreground font-medium">
-                                        Add Variable
-                                    </p>
-                                    <div className="flex gap-2 items-start">
-                                        <div className="w-52 shrink-0 space-y-1">
-                                            <Input
-                                                value={newKey}
-                                                onChange={e => {
-                                                    setNewKey(e.target.value.toUpperCase().trim());
-                                                    setNewKeyErr('');
-                                                }}
-                                                placeholder="KEY_NAME"
-                                                className="font-mono text-xs"
-                                                disabled={envBusy === '__new__'}
-                                            />
-                                            {newKeyErr && (
-                                                <p className="text-xs text-destructive">{newKeyErr}</p>
-                                            )}
-                                        </div>
-                                        <Input
-                                            value={newValue}
-                                            onChange={e => setNewValue(e.target.value)}
-                                            placeholder="value"
-                                            className="font-mono text-xs flex-1"
-                                            disabled={envBusy === '__new__'}
-                                        />
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleEnvAdd}
-                                            disabled={!newKey}
-                                            pending={envBusy === '__new__'}
-                                            className="shrink-0"
-                                        >
-                                            Add
-                                        </Button>
-                                    </div>
-                                </div>
-                            </>
-                        )}
+                        <div className="rounded-sm border border-border p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Add variable</p>
+                            <FormGrid cols={2} className="mt-3 items-start">
+                                <Field label="Key" error={newKeyErr || undefined}>
+                                    <Input
+                                        value={newKey}
+                                        onChange={e => {
+                                            setNewKey(e.target.value.toUpperCase().trim());
+                                            setNewKeyErr('');
+                                        }}
+                                        placeholder="KEY_NAME"
+                                        className="font-mono text-xs"
+                                        disabled={envBusy === '__new__'}
+                                    />
+                                </Field>
+                                <Field label="Value">
+                                    <Input
+                                        value={newValue}
+                                        onChange={e => setNewValue(e.target.value)}
+                                        placeholder="value"
+                                        className="font-mono text-xs"
+                                        disabled={envBusy === '__new__'}
+                                    />
+                                </Field>
+                            </FormGrid>
+                            <div className="mt-3 flex justify-end">
+                                <Button
+                                    size="sm"
+                                    onClick={handleEnvAdd}
+                                    disabled={!newKey}
+                                    pending={envBusy === '__new__'}
+                                    pendingText="Adding…"
+                                >
+                                    <i className="fa-solid fa-plus" /> Add variable
+                                </Button>
+                            </div>
+                        </div>
                     </div>
 
                     <DialogFooter>
@@ -820,8 +723,6 @@ export default function DeployTab() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
-        </div>
-        </TooltipProvider>
+        </PageShell>
     );
 }

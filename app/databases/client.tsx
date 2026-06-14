@@ -9,19 +9,22 @@ import {
     getPmaToken, performBackup, restoreBackup
 } from '@/app/actions/databases';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { TableRowsSkeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/EmptyState';
 import { PageShell } from '@/components/PageShell';
-import { staggerContainer, staggerItem, listItem } from '@/lib/motion';
+import { Section } from '@/components/ui/section';
+import { DataTable, type Column } from '@/components/ui/data-table';
+import { Field, FormGrid } from '@/components/ui/field';
+import { SegmentedControl } from '@/components/ui/segmented';
+import { listItem } from '@/lib/motion';
 
 // --- Constants ---
 
@@ -43,9 +46,12 @@ const PRIVILEGE_OPTIONS = [
 
 const DB_TYPE_OPTIONS = ['mysql'];
 
+type DbTab = 'databases' | 'users' | 'assignments';
+
 // --- Main Component ---
 
 export default function DatabasesClient({ actorId }: { actorId: string }) {
+    const [tab, setTab]                 = useState<DbTab>('databases');
     const [databases, setDatabases]     = useState<any[]>([]);
     const [dbUsers, setDbUsers]         = useState<any[]>([]);
     const [privileges, setPrivileges]   = useState<any[]>([]);
@@ -122,6 +128,8 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
     };
 
     const isValidDbName = (n: string) => /^[a-zA-Z][a-zA-Z0-9_]{0,62}$/.test(n);
+    const nameInvalid = newDbName.length > 0 && !isValidDbName(newDbName);
+    const usernameTaken = newUsername.length > 0 && dbUsers.some((u: any) => u.username === newUsername);
     const effectiveHosts = remoteAccess ? '*' : newDbHosts;
 
     // --- Database handlers ---
@@ -246,406 +254,404 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
         setBusyKey(null);
     };
 
+    // --- Columns ---
+
+    const dbColumns: Column<any>[] = [
+        {
+            key: 'name',
+            header: 'Name',
+            render: (db) => (
+                <span className="font-mono text-sm font-medium text-foreground">{db.database_name}</span>
+            ),
+        },
+        {
+            key: 'engine',
+            header: 'Engine',
+            render: (db) => (
+                <Badge variant="secondary" className="text-[10px] font-normal uppercase">{db.database_type}</Badge>
+            ),
+        },
+        {
+            key: 'hosts',
+            header: 'Hosts',
+            render: (db) => (
+                <span className="font-mono text-xs text-muted-foreground">
+                    {db.allowed_hosts === '*' || db.allowed_hosts === '%'
+                        ? <span className="text-amber-500"><i className="fa-solid fa-earth-americas mr-1" />All</span>
+                        : db.allowed_hosts}
+                </span>
+            ),
+        },
+        {
+            key: 'users',
+            header: 'Users',
+            align: 'center',
+            render: (db) => (
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">{usersForDatabase(db.database_uuid).length}</span>
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            align: 'right',
+            render: (db) => (
+                <div className="flex items-center justify-end gap-1.5">
+                    {db.database_type === 'mysql' && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span>
+                                    <Button variant="outline" size="sm" onClick={() => handlePmaClick(db)}
+                                        disabled={usersForDatabase(db.database_uuid).length === 0}>
+                                        <i className="fa-solid fa-table-cells" />
+                                    </Button>
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-[10px]">Open phpMyAdmin</TooltipContent>
+                        </Tooltip>
+                    )}
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span>
+                                <Button variant="outline" size="sm" onClick={() => handleBackup(db)}
+                                    pending={busyKey === `bk-${db.database_uuid}`}>
+                                    <i className="fa-solid fa-cloud-arrow-up" />
+                                </Button>
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-[10px]">Backup</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span>
+                                <Button variant="outline" size="sm" onClick={() => { setRestoreDb(db); setRestorePath(''); }}>
+                                    <i className="fa-solid fa-rotate-left" />
+                                </Button>
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-[10px]">Restore</TooltipContent>
+                    </Tooltip>
+                    <Button variant="outline" tone="inactive" size="sm" onClick={() => handleDeleteDb(db)}
+                        pending={busyKey === `del-db-${db.database_uuid}`} pendingText="Delete">
+                        Delete
+                    </Button>
+                </div>
+            ),
+        },
+    ];
+
+    const userColumns: Column<any>[] = [
+        {
+            key: 'username',
+            header: 'Username',
+            render: (u) => (
+                <span className="font-mono text-sm font-medium text-foreground">{u.username}</span>
+            ),
+        },
+        {
+            key: 'uuid',
+            header: 'UUID',
+            className: 'hidden md:table-cell',
+            headClassName: 'hidden md:table-cell',
+            render: (u) => (
+                <span className="font-mono text-[10px] text-muted-foreground">{u.user_uuid}</span>
+            ),
+        },
+        {
+            key: 'created',
+            header: 'Created',
+            className: 'hidden md:table-cell',
+            headClassName: 'hidden md:table-cell',
+            render: (u) => (
+                <span className="font-mono text-xs text-muted-foreground">
+                    {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
+                </span>
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            align: 'right',
+            render: (u) => {
+                const count = dbCountForUser(u.user_uuid);
+                return (
+                    <div className="flex items-center justify-end gap-2">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span>
+                                    <Badge variant={count > 0 ? 'default' : 'secondary'}
+                                        className={`text-[10px] cursor-default ${count > 0 ? 'text-black' : 'text-muted-foreground'}`}>
+                                        {count > 0 ? `${count} DB${count > 1 ? 's' : ''}` : 'No DBs'}
+                                    </Badge>
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-[10px]">
+                                {count > 0 ? `Attached to ${count} database${count > 1 ? 's' : ''}` : 'Not attached to any database'}
+                            </TooltipContent>
+                        </Tooltip>
+                        <Button variant="outline" tone="inactive" size="sm" onClick={() => handleDeleteUser(u)}
+                            pending={busyKey === `del-u-${u.user_uuid}`} pendingText="Delete">
+                            Delete
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ];
+
     return (
         <TooltipProvider>
         <PageShell
             title="Database Manager"
-            description="Provision databases, manage users, assign access, and run backups"
-            className="max-w-6xl pb-20"
+            description="Provision databases, manage users, assign access, and run backups."
+            actions={
+                <SegmentedControl<DbTab>
+                    value={tab}
+                    onChange={setTab}
+                    options={[
+                        { value: 'databases', label: 'Databases' },
+                        { value: 'users', label: 'Users' },
+                        { value: 'assignments', label: 'Assignments' },
+                    ]}
+                />
+            }
         >
-
-            {/* Alerts */}
             {error && (
-                <Alert className="bg-red-950/30 border-red-900/50 text-red-200 text-xs font-bold">
-                    <i className="fa-solid fa-triangle-exclamation mr-2"></i>{error}
+                <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
                 </Alert>
             )}
             {successMsg && (
-                <Alert className="bg-emerald-950/30 border-emerald-900/50 text-emerald-200 text-xs font-bold">
-                    <i className="fa-solid fa-circle-check mr-2"></i>{successMsg}
+                <Alert>
+                    <AlertDescription>{successMsg}</AlertDescription>
                 </Alert>
             )}
 
-            {/* Tabs */}
-            <Tabs defaultValue="databases">
-                <TabsList className="bg-secondary border border-border rounded-none h-9 p-0">
-                    <TabsTrigger value="databases" className="rounded-none text-xs font-bold uppercase tracking-widest px-6 h-full data-[state=active]:bg-primary data-[state=active]:text-black">
-                        <i className="fa-solid fa-database mr-2" />Databases
-                    </TabsTrigger>
-                    <TabsTrigger value="users" className="rounded-none text-xs font-bold uppercase tracking-widest px-6 h-full data-[state=active]:bg-primary data-[state=active]:text-black">
-                        <i className="fa-solid fa-users mr-2" />Users
-                    </TabsTrigger>
-                    <TabsTrigger value="assignments" className="rounded-none text-xs font-bold uppercase tracking-widest px-6 h-full data-[state=active]:bg-primary data-[state=active]:text-black">
-                        <i className="fa-solid fa-link mr-2" />Assignments
-                    </TabsTrigger>
-                </TabsList>
+            {/* ==================== DATABASES ==================== */}
+            {tab === 'databases' && (
+                <>
+                    <Section
+                        title="Provision new database"
+                        description="Create a database and choose where clients may connect from."
+                        icon="fa-solid fa-plus-circle"
+                    >
+                        <div className="space-y-4">
+                            <FormGrid cols={2}>
+                                <Field label="Engine" htmlFor="db-engine">
+                                    <Select value={newDbType} onValueChange={setNewDbType}>
+                                        <SelectTrigger id="db-engine">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {DB_TYPE_OPTIONS.map(t => (
+                                                <SelectItem key={t} value={t}>{t.toUpperCase()}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                                <Field
+                                    label="Database name"
+                                    htmlFor="db-name"
+                                    required
+                                    hint="Letters, numbers and underscores; must start with a letter."
+                                    error={nameInvalid ? 'Invalid format.' : undefined}
+                                >
+                                    <Input id="db-name" value={newDbName} onChange={(e) => setNewDbName(e.target.value.trim())}
+                                        placeholder="my_database" className="font-mono" />
+                                </Field>
+                            </FormGrid>
 
-                {/* ==================== DATABASES TAB ==================== */}
-                <TabsContent value="databases" className="mt-8 space-y-8">
-
-                    {/* Create */}
-                    <Card className="rounded-sm border-border bg-card">
-                        <div className="flex items-center justify-between border-b border-border p-4">
-                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                                <i className="fa-solid fa-plus-circle mr-2 text-primary"></i>
-                                Provision New Database
-                            </h3>
-                        </div>
-                        <div className="p-4 sm:p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Engine</label>
-                                <select value={newDbType} onChange={(e) => setNewDbType(e.target.value)}
-                                    className="w-full bg-secondary border border-border text-foreground text-sm p-2 focus:border-primary outline-none transition-all">
-                                    {DB_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
-                                </select>
-                            </div>
-                            <div className="md:col-span-4">
-                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">
-                                    Database Name
-                                    {newDbName.length > 0 && !isValidDbName(newDbName) && <span className="text-red-400 ml-2 normal-case italic">(Invalid format)</span>}
-                                </label>
-                                <Input value={newDbName} onChange={(e) => setNewDbName(e.target.value.trim())}
-                                    placeholder="my_database" className="bg-background border-border font-mono text-sm focus:border-primary" />
-                            </div>
-                            <div className="md:col-span-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <label className="block text-xs font-bold text-muted-foreground uppercase">Allowed Hosts</label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <span className="text-xs text-muted-foreground">All Remote</span>
+                            <Field label="Allowed hosts" htmlFor="db-hosts" hint="Where clients may connect from.">
+                                <div className="flex items-center gap-3">
+                                    {remoteAccess ? (
+                                        <div className="flex h-9 flex-1 items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-3 font-mono text-sm text-amber-500">
+                                            <i className="fa-solid fa-earth-americas mr-2" />All hosts permitted (%)
+                                        </div>
+                                    ) : (
+                                        <Input id="db-hosts" value={newDbHosts} onChange={(e) => setNewDbHosts(e.target.value.trim())}
+                                            placeholder="localhost" className="flex-1 font-mono" />
+                                    )}
+                                    <label className="flex shrink-0 cursor-pointer items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">All remote</span>
                                         <Switch checked={remoteAccess} onCheckedChange={setRemoteAccess} />
                                     </label>
                                 </div>
-                                {remoteAccess ? (
-                                    <div className="border border-yellow-800/50 bg-yellow-950/20 px-3 py-2 text-yellow-400 text-xs font-mono flex items-center gap-2">
-                                        <i className="fa-solid fa-earth-americas" />All hosts permitted (%)
-                                    </div>
-                                ) : (
-                                    <Input value={newDbHosts} onChange={(e) => setNewDbHosts(e.target.value.trim())}
-                                        placeholder="localhost" className="bg-background border-border font-mono text-sm focus:border-primary" />
-                                )}
-                            </div>
-                            <div className="md:col-span-2">
+                            </Field>
+
+                            <div className="flex justify-end">
                                 <Button ripple onClick={handleCreateDb}
                                     disabled={!newDbName || !isValidDbName(newDbName) || !actorId}
-                                    pending={creating}
-                                    pendingText="Creating..."
-                                    className="w-full h-10">
-                                    Create
+                                    pending={creating} pendingText="Creating…">
+                                    <i className="fa-solid fa-plus" /> Create database
                                 </Button>
                             </div>
                         </div>
-                        </div>
-                    </Card>
+                    </Section>
 
-                    {/* Restore modal trigger row */}
                     {restoreDb && (
-                        <Card className="rounded-sm p-4 border-yellow-800/40 bg-yellow-950/10">
-                            <p className="text-xs font-bold text-yellow-400 uppercase tracking-wider mb-3">
-                                <i className="fa-solid fa-rotate-left mr-2" />Restoring: {restoreDb.database_name}
-                            </p>
-                            <div className="flex gap-3 items-end">
-                                <div className="flex-1">
-                                    <Input value={restorePath} onChange={(e) => setRestorePath(e.target.value.trim())}
+                        <Section
+                            title="Restore database"
+                            description={<>Overwrites <span className="font-mono text-foreground">{restoreDb.database_name}</span> from a backup file.</>}
+                            icon="fa-solid fa-rotate-left"
+                            className="border-amber-500/40"
+                        >
+                            <Field label="Backup file path" htmlFor="restore-path" hint="Server path to the dump to restore from.">
+                                <div className="flex items-center gap-2">
+                                    <Input id="restore-path" value={restorePath} onChange={(e) => setRestorePath(e.target.value.trim())}
                                         placeholder="/var/backups/nydus/mysql/db_20260101.dump"
-                                        className="bg-background border-border font-mono text-xs focus:border-primary" />
+                                        className="flex-1 font-mono text-xs" />
+                                    <Button ripple variant="outline" tone="warning" onClick={handleRestore} disabled={!restorePath}
+                                        pending={restoreLoading} pendingText="Restoring…" className="shrink-0">
+                                        Restore
+                                    </Button>
+                                    <Button variant="outline" onClick={() => { setRestoreDb(null); setRestorePath(''); }} className="shrink-0">
+                                        Cancel
+                                    </Button>
                                 </div>
-                                <Button ripple variant="outline" tone="warning" onClick={handleRestore} disabled={!restorePath}
-                                    pending={restoreLoading} pendingText="Restoring..." className="h-10">
-                                    Restore
-                                </Button>
-                                <Button ripple variant="outline" onClick={() => { setRestoreDb(null); setRestorePath(''); }}
-                                    className="h-10">Cancel</Button>
-                            </div>
-                        </Card>
+                            </Field>
+                        </Section>
                     )}
 
-                    {/* List */}
-                    <div className="space-y-4">
-                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Active Databases</h3>
-                        <Card className="rounded-sm border-border bg-card overflow-hidden">
-                            {loading && databases.length === 0 ? (
-                                <TableRowsSkeleton rows={5} cols={5} />
-                            ) : databases.length === 0 ? (
+                    <Section title="Active databases" description="Databases provisioned under your account" icon="fa-solid fa-database" flush>
+                        <DataTable
+                            columns={dbColumns}
+                            rows={databases}
+                            getRowId={(db) => db.database_uuid}
+                            loading={loading}
+                            empty={
                                 <EmptyState
                                     icon="fa-solid fa-database"
                                     title="No databases provisioned yet"
                                     hint="Provision a database above to get started."
-                                    className="border-0"
                                 />
-                            ) : (
-                                <Table>
-                                    <TableHeader className="bg-secondary border-b border-border">
-                                        <TableRow className="border-border">
-                                            <TableHead className="font-bold text-foreground uppercase text-xs">Name</TableHead>
-                                            <TableHead className="font-bold text-foreground uppercase text-xs w-24">Engine</TableHead>
-                                            <TableHead className="font-bold text-foreground uppercase text-xs">Hosts</TableHead>
-                                            <TableHead className="font-bold text-foreground uppercase text-xs w-20">Users</TableHead>
-                                            <TableHead className="font-bold text-foreground uppercase text-xs text-right pr-4">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <motion.tbody
-                                        className="[&_tr:last-child]:border-0"
-                                        variants={staggerContainer}
-                                        initial="hidden"
-                                        animate="show"
-                                    >
-                                        <AnimatePresence initial={false}>
-                                        {databases.map((db: any) => (
-                                            <motion.tr
-                                                key={db.database_uuid}
-                                                layout
-                                                variants={listItem}
-                                                exit="exit"
-                                                className="border-b border-border hover:bg-secondary/50 transition-colors"
-                                            >
-                                                <TableCell className="font-mono text-sm font-semibold text-foreground">{db.database_name}</TableCell>
-                                                <TableCell>
-                                                    <Badge variant="default" className="text-xs font-bold uppercase text-black">{db.database_type}</Badge>
-                                                </TableCell>
-                                                <TableCell className="font-mono text-xs text-muted-foreground">
-                                                    {db.allowed_hosts === '*' || db.allowed_hosts === '%'
-                                                        ? <span className="text-yellow-500"><i className="fa-solid fa-earth-americas mr-1" />All</span>
-                                                        : db.allowed_hosts}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="secondary" className="text-xs">{usersForDatabase(db.database_uuid).length}</Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right pr-4">
-                                                    <div className="flex justify-end gap-1.5">
-                                                        {db.database_type === 'mysql' && (
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <span>
-                                                                        <Button variant="outline" size="sm" onClick={() => handlePmaClick(db)}
-                                                                            disabled={usersForDatabase(db.database_uuid).length === 0}>
-                                                                            <i className="fa-solid fa-table-cells" />
-                                                                        </Button>
-                                                                    </span>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent side="top" className="text-[10px]">Open phpMyAdmin</TooltipContent>
-                                                            </Tooltip>
-                                                        )}
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <span>
-                                                                    <Button variant="outline" size="sm" onClick={() => handleBackup(db)}
-                                                                        pending={busyKey === `bk-${db.database_uuid}`}>
-                                                                        <i className="fa-solid fa-cloud-arrow-up" />
-                                                                    </Button>
-                                                                </span>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent side="top" className="text-[10px]">Backup</TooltipContent>
-                                                        </Tooltip>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <span>
-                                                                    <Button variant="outline" size="sm" onClick={() => { setRestoreDb(db); setRestorePath(''); }}>
-                                                                        <i className="fa-solid fa-rotate-left" />
-                                                                    </Button>
-                                                                </span>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent side="top" className="text-[10px]">Restore</TooltipContent>
-                                                        </Tooltip>
-                                                        <Button variant="destructive" size="sm" onClick={() => handleDeleteDb(db)}
-                                                            pending={busyKey === `del-db-${db.database_uuid}`}
-                                                            pendingText="Delete">
-                                                            Delete
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            </motion.tr>
-                                        ))}
-                                        </AnimatePresence>
-                                    </motion.tbody>
-                                </Table>
-                            )}
-                        </Card>
-                    </div>
-                </TabsContent>
+                            }
+                        />
+                    </Section>
+                </>
+            )}
 
-                {/* ==================== USERS TAB ==================== */}
-                <TabsContent value="users" className="mt-8 space-y-8">
+            {/* ==================== USERS ==================== */}
+            {tab === 'users' && (
+                <>
+                    <Section
+                        title="Create database user"
+                        description="New users start unattached — link them to a database in Assignments."
+                        icon="fa-solid fa-user-plus"
+                    >
+                        <div className="space-y-4">
+                            <FormGrid cols={2}>
+                                <Field label="Engine" htmlFor="user-engine">
+                                    <Select value={userDbType} onValueChange={setUserDbType}>
+                                        <SelectTrigger id="user-engine">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {DB_TYPE_OPTIONS.map(t => (
+                                                <SelectItem key={t} value={t}>{t.toUpperCase()}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                                <Field
+                                    label="Username"
+                                    htmlFor="user-name"
+                                    required
+                                    error={usernameTaken ? 'That username is already taken.' : undefined}
+                                >
+                                    <div className="flex">
+                                        <Input id="user-name" value={newUsername} onChange={(e) => setNewUsername(e.target.value.trim())}
+                                            placeholder="tewi_1029358398243"
+                                            className="flex-1 rounded-r-none border-r-0 font-mono" />
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button type="button" onClick={randomizeName}
+                                                    className="shrink-0 rounded-r-md border border-l-0 border-input bg-secondary px-3 text-sm text-muted-foreground transition-colors hover:text-primary">
+                                                    <i className="fa-solid fa-shuffle" />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="text-[10px]">Randomize Touhou name</TooltipContent>
+                                        </Tooltip>
+                                    </div>
+                                </Field>
+                                <Field label="Password" htmlFor="user-pass" required>
+                                    <Input id="user-pass" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                                        placeholder="Strong password" className="font-mono" />
+                                </Field>
+                            </FormGrid>
 
-                    {/* Create */}
-                    <Card className="rounded-sm border-border bg-card">
-                        <div className="flex items-center justify-between border-b border-border p-4">
-                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                                <i className="fa-solid fa-user-plus mr-2 text-primary"></i>
-                                Create Database User
-                            </h3>
-                        </div>
-                        <div className="p-4 sm:p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Engine</label>
-                                <select value={userDbType} onChange={(e) => setUserDbType(e.target.value)}
-                                    className="w-full bg-secondary border border-border text-foreground text-sm p-2 focus:border-primary outline-none transition-all">
-                                    {DB_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
-                                </select>
-                            </div>
-                            <div className="md:col-span-4">
-                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">
-                                    Username
-                                    {newUsername.length > 0 && dbUsers.some((u: any) => u.username === newUsername) && <span className="text-red-400 ml-2 normal-case italic">(Taken)</span>}
-                                </label>
-                                <div className="flex">
-                                    <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value.trim())}
-                                        placeholder="tewi_1029358398243"
-                                        className="bg-background border-border font-mono text-sm focus:border-primary flex-1 border-r-0" />
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button onClick={randomizeName}
-                                                className="border border-border border-l-0 bg-secondary px-3 text-muted-foreground hover:text-primary transition-colors text-sm shrink-0">
-                                                <i className="fa-solid fa-shuffle" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top" className="text-[10px]">Randomize Touhou name</TooltipContent>
-                                    </Tooltip>
-                                </div>
-                            </div>
-                            <div className="md:col-span-4">
-                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Password</label>
-                                <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-                                    placeholder="Strong password"
-                                    className="bg-background border-border font-mono text-sm focus:border-primary" />
-                            </div>
-                            <div className="md:col-span-2">
+                            <div className="flex justify-end">
                                 <Button ripple onClick={handleCreateUser}
-                                    disabled={!newUsername || !newPassword || !actorId || dbUsers.some((u: any) => u.username === newUsername)}
-                                    pending={creatingUser}
-                                    pendingText="Creating..."
-                                    className="w-full h-10">
-                                    Create
+                                    disabled={!newUsername || !newPassword || !actorId || usernameTaken}
+                                    pending={creatingUser} pendingText="Creating…">
+                                    <i className="fa-solid fa-user-plus" /> Create user
                                 </Button>
                             </div>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-4 border-l-2 border-border pl-3">
-                            After creating a user, head to the <strong className="text-foreground">Assignments</strong> tab to attach them to a database.
-                        </p>
-                        </div>
-                    </Card>
+                    </Section>
 
-                    {/* List */}
-                    <div className="space-y-4">
-                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">All Database Users</h3>
-                        <Card className="rounded-sm border-border bg-card overflow-hidden">
-                            {loading && dbUsers.length === 0 ? (
-                                <TableRowsSkeleton rows={5} cols={4} />
-                            ) : dbUsers.length === 0 ? (
+                    <Section title="All database users" description="Every user provisioned under your account" icon="fa-solid fa-users" flush>
+                        <DataTable
+                            columns={userColumns}
+                            rows={dbUsers}
+                            getRowId={(u) => u.user_uuid}
+                            loading={loading}
+                            empty={
                                 <EmptyState
                                     icon="fa-solid fa-users"
                                     title="No database users found"
                                     hint="Create a user above to get started."
-                                    className="border-0"
                                 />
-                            ) : (
-                                <Table>
-                                    <TableHeader className="bg-secondary border-b border-border">
-                                        <TableRow className="border-border">
-                                            <TableHead className="font-bold text-foreground uppercase text-xs">Username</TableHead>
-                                            <TableHead className="font-bold text-foreground uppercase text-xs hidden md:table-cell">UUID</TableHead>
-                                            <TableHead className="font-bold text-foreground uppercase text-xs hidden md:table-cell">Created</TableHead>
-                                            <TableHead className="font-bold text-foreground uppercase text-xs text-right pr-4">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <motion.tbody
-                                        className="[&_tr:last-child]:border-0"
-                                        variants={staggerContainer}
-                                        initial="hidden"
-                                        animate="show"
-                                    >
-                                        <AnimatePresence initial={false}>
-                                        {dbUsers.map((u: any) => {
-                                            const count = dbCountForUser(u.user_uuid);
-                                            return (
-                                                <motion.tr
-                                                    key={u.user_uuid}
-                                                    layout
-                                                    variants={listItem}
-                                                    exit="exit"
-                                                    className="border-b border-border hover:bg-secondary/50 transition-colors"
-                                                >
-                                                    <TableCell className="font-mono text-sm font-semibold text-foreground">{u.username}</TableCell>
-                                                    <TableCell className="font-mono text-xs text-muted-foreground hidden md:table-cell">{u.user_uuid}</TableCell>
-                                                    <TableCell className="font-mono text-xs text-muted-foreground hidden md:table-cell">
-                                                        {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
-                                                    </TableCell>
-                                                    <TableCell className="text-right pr-4">
-                                                        <div className="flex justify-end items-center gap-2">
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <span>
-                                                                        <Badge variant={count > 0 ? 'default' : 'secondary'}
-                                                                            className={`text-xs font-bold cursor-default ${count > 0 ? 'text-black' : 'text-muted-foreground'}`}>
-                                                                            {count > 0 ? `${count} DB${count > 1 ? 's' : ''}` : 'No DBs'}
-                                                                        </Badge>
-                                                                    </span>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent side="top" className="text-[10px]">
-                                                                    {count > 0 ? `Attached to ${count} database${count > 1 ? 's' : ''}` : 'Not attached to any database'}
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                            <Button variant="destructive" size="sm" onClick={() => handleDeleteUser(u)}
-                                                                pending={busyKey === `del-u-${u.user_uuid}`}
-                                                                pendingText="Delete">
-                                                                Delete
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </motion.tr>
-                                            );
-                                        })}
-                                        </AnimatePresence>
-                                    </motion.tbody>
-                                </Table>
-                            )}
-                        </Card>
-                    </div>
-                </TabsContent>
+                            }
+                        />
+                    </Section>
+                </>
+            )}
 
-                {/* ==================== ASSIGNMENTS TAB ==================== */}
-                <TabsContent value="assignments" className="mt-8">
-                    <div className="mb-6">
-                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
-                            <i className="fa-solid fa-link mr-2 text-primary"></i>
-                            Assign Users to Databases
-                        </h3>
-                        <p className="text-xs text-muted-foreground">Drag a user from the left panel and drop them onto a database to assign access.</p>
-                    </div>
-
-                    {/* Pending assignment confirmation */}
+            {/* ==================== ASSIGNMENTS ==================== */}
+            {tab === 'assignments' && (
+                <>
                     {pendingAssign && (
-                        <Card className="rounded-sm p-4 mb-6 border-primary/40 bg-primary/5">
-                            <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
-                                <i className="fa-solid fa-arrow-right mr-2 text-primary" />
-                                Assign <span className="text-primary font-mono">{pendingAssign.user.username}</span> to <span className="text-primary font-mono">{pendingAssign.db.database_name}</span>
-                            </p>
-                            <div className="flex items-center gap-3">
-                                <select value={assignPriv} onChange={(e) => setAssignPriv(e.target.value)}
-                                    className="bg-secondary border border-border text-foreground text-xs font-mono p-2 outline-none focus:border-primary transition-all flex-1 max-w-xs">
-                                    {PRIVILEGE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                                </select>
-                                <Button onClick={handleConfirmAssign} pending={assigning} pendingText="Confirm">
-                                    <i className="fa-solid fa-check" />Confirm
-                                </Button>
-                                <Button variant="outline" onClick={() => setPendingAssign(null)}>Cancel</Button>
+                        <Section className="border-primary/40 bg-primary/5">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                                <Field
+                                    label="Privileges"
+                                    hint={
+                                        <>
+                                            Granting to <span className="font-mono text-foreground">{pendingAssign.user.username}</span> on{' '}
+                                            <span className="font-mono text-foreground">{pendingAssign.db.database_name}</span>
+                                        </>
+                                    }
+                                    className="flex-1 sm:max-w-xs"
+                                >
+                                    <Select value={assignPriv} onValueChange={setAssignPriv}>
+                                        <SelectTrigger className="font-mono text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {PRIVILEGE_OPTIONS.map(p => (
+                                                <SelectItem key={p} value={p} className="font-mono text-xs">{p}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                                <div className="flex shrink-0 gap-2">
+                                    <Button ripple onClick={handleConfirmAssign} pending={assigning} pendingText="Granting…">
+                                        <i className="fa-solid fa-check" /> Confirm
+                                    </Button>
+                                    <Button variant="outline" onClick={() => setPendingAssign(null)}>Cancel</Button>
+                                </div>
                             </div>
-                        </Card>
+                        </Section>
                     )}
 
-                    <div className="flex gap-4 min-h-[500px]">
-
-                        {/* Left: Users (20%) */}
-                        <div className="w-1/5 shrink-0">
-                            <div className="sticky top-20">
-                                <div className="bg-secondary border border-border px-3 py-2 mb-0.5">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Users</p>
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_1fr]">
+                        {/* Users palette */}
+                        <Section title="Users" description="Drag onto a database" icon="fa-solid fa-users" flush className="self-start">
+                            {dbUsers.length === 0 ? (
+                                <div className="p-4 sm:p-6">
+                                    <EmptyState icon="fa-solid fa-users" title="No users yet" hint="Create a database user to assign access." />
                                 </div>
-                                <div className="border border-t-0 border-border bg-card">
-                                    {dbUsers.length === 0 && (
-                                        <p className="p-4 text-xs text-muted-foreground italic text-center">No users yet.</p>
-                                    )}
+                            ) : (
+                                <div className="divide-y divide-border">
                                     {dbUsers.map((u: any) => (
                                         <div
                                             key={u.user_uuid}
@@ -653,124 +659,118 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                                             onDragStart={() => setDragUser(u)}
                                             onDragEnd={() => setDragUser(null)}
                                             className={`
-                                                px-3 py-2.5 border-b border-border/50 cursor-grab active:cursor-grabbing
-                                                select-none transition-all hover:bg-secondary/60 group
-                                                ${dragUser?.user_uuid === u.user_uuid ? 'opacity-40 scale-95' : 'opacity-100'}
+                                                cursor-grab select-none px-4 py-2.5 transition-all active:cursor-grabbing hover:bg-secondary/60
+                                                ${dragUser?.user_uuid === u.user_uuid ? 'scale-95 opacity-40' : 'opacity-100'}
                                             `}
                                         >
-                                            <p className="font-mono text-xs font-semibold text-foreground truncate">{u.username}</p>
-                                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                                            <p className="truncate font-mono text-xs font-medium text-foreground">{u.username}</p>
+                                            <p className="mt-0.5 text-[10px] text-muted-foreground">
                                                 {dbCountForUser(u.user_uuid)} database{dbCountForUser(u.user_uuid) !== 1 ? 's' : ''}
                                             </p>
                                         </div>
                                     ))}
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Right: Databases (80%) */}
-                        <div className="flex-1">
-                            {databases.length === 0 ? (
-                                <EmptyState
-                                    icon="fa-solid fa-database"
-                                    title="No databases provisioned yet"
-                                    hint="Provision a database first, then drag users here to assign access."
-                                />
-                            ) : (
-                                <motion.div
-                                    className="space-y-3"
-                                    variants={staggerContainer}
-                                    initial="hidden"
-                                    animate="show"
-                                >
-                                {databases.map((db: any) => {
-                                    const attached = usersForDatabase(db.database_uuid);
-                                    const isOver = dragOverDb === db.database_uuid;
-                                    return (
-                                        <motion.div
-                                            key={db.database_uuid}
-                                            variants={staggerItem}
-                                            onDragOver={(e) => { e.preventDefault(); setDragOverDb(db.database_uuid); }}
-                                            onDragLeave={() => setDragOverDb(null)}
-                                            onDrop={() => handleDrop(db)}
-                                            className={`
-                                                border bg-card transition-all duration-150
-                                                ${isOver
-                                                    ? 'border-primary border-dashed bg-primary/5 shadow-[0_0_0_1px_hsl(var(--primary)/0.3)]'
-                                                    : 'border-border'}
-                                            `}
-                                        >
-                                            {/* Database header */}
-                                            <div className={`px-4 py-3 border-b flex items-center justify-between transition-colors ${isOver ? 'border-primary/30 bg-primary/5' : 'border-border bg-secondary/40'}`}>
-                                                <div className="flex items-center gap-3">
-                                                    <Badge variant="default" className="text-[10px] font-bold uppercase text-black shrink-0">{db.database_type}</Badge>
-                                                    <span className="font-mono text-sm font-bold text-foreground">{db.database_name}</span>
-                                                    {db.allowed_hosts === '*' || db.allowed_hosts === '%'
-                                                        ? <Badge variant="outline" className="text-[10px] text-yellow-500 border-yellow-800/50"><i className="fa-solid fa-earth-americas mr-1" />All Hosts</Badge>
-                                                        : <span className="text-[10px] text-muted-foreground font-mono">{db.allowed_hosts}</span>
-                                                    }
-                                                </div>
-                                                {isOver && dragUser && (
-                                                    <span className="text-[10px] text-primary font-bold animate-pulse">
-                                                        <i className="fa-solid fa-arrow-down mr-1" />Drop to assign {dragUser.username}
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            {/* Attached users */}
-                                            <div className="px-4 py-3 min-h-[52px] flex flex-wrap gap-2 items-center">
-                                                {attached.length === 0 && !isOver && (
-                                                    <span className="text-xs text-muted-foreground/50 italic">No users assigned — drag one here</span>
-                                                )}
-                                                <AnimatePresence initial={false}>
-                                                {attached.map((p: any) => (
-                                                    <motion.div key={p.user_uuid}
-                                                        layout
-                                                        variants={listItem}
-                                                        initial="hidden"
-                                                        animate="show"
-                                                        exit="exit"
-                                                        className="flex items-center gap-1.5 bg-secondary border border-border px-2.5 py-1 text-xs font-mono group/chip">
-                                                        <span className="text-foreground">{p.username}</span>
-                                                        <span className="text-muted-foreground/50 text-[10px]">{p.privileges}</span>
-                                                        <button
-                                                            onClick={() => handleRevokeAssignment(db.database_uuid, db.database_name, db.database_type, p.user_uuid, p.username)}
-                                                            disabled={busyKey === `rev-${db.database_uuid}-${p.user_uuid}`}
-                                                            className="text-muted-foreground hover:text-red-400 transition-colors ml-1 disabled:opacity-50"
-                                                        >
-                                                            {busyKey === `rev-${db.database_uuid}-${p.user_uuid}`
-                                                                ? <i className="fa-solid fa-spinner fa-spin text-[10px]" />
-                                                                : <i className="fa-solid fa-xmark text-[10px]" />}
-                                                        </button>
-                                                    </motion.div>
-                                                ))}
-                                                </AnimatePresence>
-                                                {isOver && dragUser && !isUserAttached(db.database_uuid, dragUser.user_uuid) && (
-                                                    <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/40 border-dashed px-2.5 py-1 text-xs font-mono text-primary animate-pulse">
-                                                        <i className="fa-solid fa-plus text-[10px]" />{dragUser.username}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </motion.div>
-                                    );
-                                })}
-                                </motion.div>
                             )}
-                        </div>
+                        </Section>
+
+                        {/* Databases drop targets */}
+                        <Section title="Databases" description="Drop a user here to grant access" icon="fa-solid fa-database" flush>
+                            {databases.length === 0 ? (
+                                <div className="p-4 sm:p-6">
+                                    <EmptyState
+                                        icon="fa-solid fa-database"
+                                        title="No databases provisioned yet"
+                                        hint="Provision a database first, then drag users here to assign access."
+                                    />
+                                </div>
+                            ) : (
+                                <div className="space-y-3 p-4 sm:p-6">
+                                    {databases.map((db: any) => {
+                                        const attached = usersForDatabase(db.database_uuid);
+                                        const isOver = dragOverDb === db.database_uuid;
+                                        return (
+                                            <div
+                                                key={db.database_uuid}
+                                                onDragOver={(e) => { e.preventDefault(); setDragOverDb(db.database_uuid); }}
+                                                onDragLeave={() => setDragOverDb(null)}
+                                                onDrop={() => handleDrop(db)}
+                                                className={`
+                                                    rounded-sm border bg-card transition-all duration-150
+                                                    ${isOver
+                                                        ? 'border-dashed border-primary bg-primary/5 shadow-[0_0_0_1px_hsl(var(--primary)/0.3)]'
+                                                        : 'border-border'}
+                                                `}
+                                            >
+                                                <div className={`flex items-center justify-between border-b px-4 py-3 transition-colors ${isOver ? 'border-primary/30 bg-primary/5' : 'border-border bg-secondary/40'}`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <Badge variant="secondary" className="shrink-0 text-[10px] font-bold uppercase">{db.database_type}</Badge>
+                                                        <span className="font-mono text-sm font-bold text-foreground">{db.database_name}</span>
+                                                        {db.allowed_hosts === '*' || db.allowed_hosts === '%'
+                                                            ? <Badge variant="outline" className="text-[10px] text-amber-500"><i className="fa-solid fa-earth-americas mr-1" />All hosts</Badge>
+                                                            : <span className="font-mono text-[10px] text-muted-foreground">{db.allowed_hosts}</span>
+                                                        }
+                                                    </div>
+                                                    {isOver && dragUser && (
+                                                        <span className="animate-pulse text-[10px] font-bold text-primary">
+                                                            <i className="fa-solid fa-arrow-down mr-1" />Drop to assign {dragUser.username}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex min-h-[52px] flex-wrap items-center gap-2 px-4 py-3">
+                                                    {attached.length === 0 && !isOver && (
+                                                        <span className="text-xs italic text-muted-foreground/50">No users assigned — drag one here</span>
+                                                    )}
+                                                    <AnimatePresence initial={false}>
+                                                        {attached.map((p: any) => (
+                                                            <motion.div key={p.user_uuid}
+                                                                layout
+                                                                variants={listItem}
+                                                                initial="hidden"
+                                                                animate="show"
+                                                                exit="exit"
+                                                                className="flex items-center gap-1.5 rounded-sm border border-border bg-secondary px-2.5 py-1 font-mono text-xs">
+                                                                <span className="text-foreground">{p.username}</span>
+                                                                <span className="text-[10px] text-muted-foreground/50">{p.privileges}</span>
+                                                                <button
+                                                                    onClick={() => handleRevokeAssignment(db.database_uuid, db.database_name, db.database_type, p.user_uuid, p.username)}
+                                                                    disabled={busyKey === `rev-${db.database_uuid}-${p.user_uuid}`}
+                                                                    className="ml-1 text-muted-foreground transition-colors hover:text-red-500 disabled:opacity-50"
+                                                                    aria-label={`Remove ${p.username}`}
+                                                                >
+                                                                    {busyKey === `rev-${db.database_uuid}-${p.user_uuid}`
+                                                                        ? <i className="fa-solid fa-spinner fa-spin text-[10px]" />
+                                                                        : <i className="fa-solid fa-xmark text-[10px]" />}
+                                                                </button>
+                                                            </motion.div>
+                                                        ))}
+                                                    </AnimatePresence>
+                                                    {isOver && dragUser && !isUserAttached(db.database_uuid, dragUser.user_uuid) && (
+                                                        <div className="flex animate-pulse items-center gap-1.5 rounded-sm border border-dashed border-primary/40 bg-primary/10 px-2.5 py-1 font-mono text-xs text-primary">
+                                                            <i className="fa-solid fa-plus text-[10px]" />{dragUser.username}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </Section>
                     </div>
-                </TabsContent>
-            </Tabs>
+                </>
+            )}
 
             {/* phpMyAdmin user picker modal */}
             <Dialog open={!!pmaDb} onOpenChange={(open) => { if (!open) { setPmaDb(null); setPmaUsers([]); } }}>
-                <DialogContent className="bg-card border-border max-w-sm">
+                <DialogContent className="max-w-sm border-border bg-card">
                     <DialogHeader>
                         <DialogTitle className="text-sm font-bold uppercase tracking-wider">
                             <i className="fa-solid fa-table-cells mr-2 text-orange-400" />
                             Open phpMyAdmin
                         </DialogTitle>
                     </DialogHeader>
-                    <p className="text-xs text-muted-foreground mb-4">
+                    <p className="mb-4 text-xs text-muted-foreground">
                         Multiple users are attached to <span className="font-mono text-foreground">{pmaDb?.database_name}</span>. Select which account to log in with.
                     </p>
                     <div className="space-y-2">
@@ -778,10 +778,10 @@ export default function DatabasesClient({ actorId }: { actorId: string }) {
                             <button key={p.user_uuid}
                                 onClick={() => redirectToPma(p.user_uuid)}
                                 disabled={pmaLoading}
-                                className="w-full flex items-center justify-between px-4 py-3 bg-secondary hover:bg-border border border-border transition-colors text-left disabled:opacity-50 cursor-pointer">
+                                className="flex w-full cursor-pointer items-center justify-between border border-border bg-secondary px-4 py-3 text-left transition-colors hover:bg-border disabled:opacity-50">
                                 <div>
-                                    <p className="text-sm font-mono font-semibold text-foreground">{p.username}</p>
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">{p.privileges}</p>
+                                    <p className="font-mono text-sm font-semibold text-foreground">{p.username}</p>
+                                    <p className="mt-0.5 text-[10px] text-muted-foreground">{p.privileges}</p>
                                 </div>
                                 {pmaLoading
                                     ? <i className="fa-solid fa-spinner fa-spin text-muted-foreground" />

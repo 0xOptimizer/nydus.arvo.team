@@ -1,19 +1,22 @@
 'use client'
 
 import { useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import Link from 'next/link'
 import { useDatabaseContext } from '@/app/databases/context/DatabaseContext'
 import { createDatabaseUser, deleteDatabaseUser } from '@/app/actions/databases'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { TableRowsSkeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/EmptyState'
 import { PageShell } from '@/components/PageShell'
-import { staggerContainer, listItem } from '@/lib/motion'
+import { Section } from '@/components/ui/section'
+import { DataTable, type Column } from '@/components/ui/data-table'
+import { Field, FormGrid } from '@/components/ui/field'
 
 const TOUHOU_NAMES = [
     'reimu', 'marisa', 'sakuya', 'remilia', 'flandre',
@@ -42,6 +45,8 @@ export default function UsersTab() {
 
     const dbCountForUser = (userUuid: string) =>
         privileges.filter((p: any) => p.user_uuid === userUuid).length
+
+    const usernameTaken = newUsername.length > 0 && dbUsers.some((u: any) => u.username === newUsername)
 
     const randomizeName = () => {
         const available = TOUHOU_NAMES.filter(n =>
@@ -87,9 +92,87 @@ export default function UsersTab() {
         setBusyKey(null)
     }
 
+    const columns: Column<any>[] = [
+        {
+            key: 'username',
+            header: 'Username',
+            render: (u) => (
+                <span className="font-mono text-sm font-medium text-foreground">{u.username}</span>
+            ),
+        },
+        {
+            key: 'uuid',
+            header: 'UUID',
+            className: 'hidden md:table-cell',
+            headClassName: 'hidden md:table-cell',
+            render: (u) => (
+                <span className="font-mono text-[10px] text-muted-foreground">{u.user_uuid}</span>
+            ),
+        },
+        {
+            key: 'created',
+            header: 'Created',
+            className: 'hidden md:table-cell',
+            headClassName: 'hidden md:table-cell',
+            render: (u) => (
+                <span className="font-mono text-xs text-muted-foreground">
+                    {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
+                </span>
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            align: 'right',
+            render: (u) => {
+                const count = dbCountForUser(u.user_uuid)
+                return (
+                    <div className="flex items-center justify-end gap-2">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span>
+                                    <Badge
+                                        variant={count > 0 ? 'default' : 'secondary'}
+                                        className={`text-[10px] cursor-default ${count > 0 ? 'text-black' : 'text-muted-foreground'}`}
+                                    >
+                                        {count > 0 ? `${count} DB${count > 1 ? 's' : ''}` : 'No DBs'}
+                                    </Badge>
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-[10px]">
+                                {count > 0
+                                    ? `Attached to ${count} database${count > 1 ? 's' : ''}`
+                                    : 'Not attached to any database'}
+                            </TooltipContent>
+                        </Tooltip>
+                        <Button
+                            ripple
+                            variant="outline"
+                            tone="inactive"
+                            size="sm"
+                            onClick={() => handleDeleteUser(u)}
+                            pending={busyKey === `del-u-${u.user_uuid}`}
+                            pendingText="Delete"
+                        >
+                            Delete
+                        </Button>
+                    </div>
+                )
+            },
+        },
+    ]
+
     return (
         <TooltipProvider>
-        <PageShell title="Users" description="Create database users and manage their access.">
+        <PageShell
+            title="Users"
+            description="Create database users and manage their access."
+            meta={
+                <Badge variant="secondary" className="text-[10px] uppercase">
+                    {dbUsers.length} user{dbUsers.length === 1 ? '' : 's'}
+                </Badge>
+            }
+        >
             {error && (
                 <Alert variant="destructive">
                     <AlertDescription>{error}</AlertDescription>
@@ -101,190 +184,127 @@ export default function UsersTab() {
                 </Alert>
             )}
 
-            <div className="rounded-sm border border-border bg-card">
-                <div className="flex items-center justify-between border-b border-border p-4">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                        <i className="fa-solid fa-user-plus mr-2 text-primary" />
-                        Create Database User
-                    </h3>
-                </div>
-                <div className="p-4 sm:p-6">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                    <div className="md:col-span-2">
-                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Engine</label>
-                        <select
-                            value={userDbType}
-                            onChange={e => setUserDbType(e.target.value)}
-                            className="w-full bg-secondary border border-border text-foreground text-sm p-2 focus:border-primary outline-none transition-all"
+            <Section
+                title="Create database user"
+                description="New users start unattached — link them to a database in Assignments."
+                icon="fa-solid fa-user-plus"
+            >
+                <div className="space-y-4">
+                    <FormGrid cols={2}>
+                        <Field label="Engine" htmlFor="user-engine">
+                            <Select value={userDbType} onValueChange={setUserDbType}>
+                                <SelectTrigger id="user-engine">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {DB_TYPE_OPTIONS.map(t => (
+                                        <SelectItem key={t} value={t}>{t.toUpperCase()}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </Field>
+                        <Field
+                            label="Username"
+                            htmlFor="user-name"
+                            required
+                            error={usernameTaken ? 'That username is already taken.' : undefined}
                         >
-                            {DB_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
-                        </select>
-                    </div>
-                    <div className="md:col-span-3">
-                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">
-                            Username
-                            {newUsername.length > 0 && dbUsers.some((u: any) => u.username === newUsername) &&
-                                <span className="text-red-400 ml-2 normal-case italic">(Taken)</span>}
-                        </label>
-                        <div className="flex">
+                            <div className="flex">
+                                <Input
+                                    id="user-name"
+                                    value={newUsername}
+                                    onChange={e => setNewUsername(e.target.value.trim())}
+                                    placeholder="tewi_1029358398243"
+                                    className="flex-1 rounded-r-none border-r-0 font-mono"
+                                />
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            type="button"
+                                            onClick={randomizeName}
+                                            className="shrink-0 rounded-r-md border border-l-0 border-input bg-secondary px-3 text-sm text-muted-foreground transition-colors hover:text-primary"
+                                        >
+                                            <i className="fa-solid fa-shuffle" />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-[10px]">Randomize Touhou name</TooltipContent>
+                                </Tooltip>
+                            </div>
+                        </Field>
+                        <Field label="Password" htmlFor="user-pass" required>
                             <Input
-                                value={newUsername}
-                                onChange={e => setNewUsername(e.target.value.trim())}
-                                placeholder="tewi_1029358398243"
-                                className="bg-background border-border font-mono text-sm focus:border-primary flex-1 border-r-0"
+                                id="user-pass"
+                                type="password"
+                                value={newPassword}
+                                onChange={e => setNewPassword(e.target.value)}
+                                placeholder="Strong password"
+                                className="font-mono"
                             />
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button
-                                        onClick={randomizeName}
-                                        className="border border-border border-l-0 bg-secondary px-3 text-muted-foreground hover:text-primary transition-colors text-sm shrink-0"
-                                    >
-                                        <i className="fa-solid fa-shuffle" />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="text-[10px]">Randomize Touhou name</TooltipContent>
-                            </Tooltip>
-                        </div>
-                    </div>
-                    <div className="md:col-span-3">
-                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Password</label>
-                        <Input
-                            type="password"
-                            value={newPassword}
-                            onChange={e => setNewPassword(e.target.value)}
-                            placeholder="Strong password"
-                            className="bg-background border-border font-mono text-sm focus:border-primary"
-                        />
-                    </div>
-                    <div className="md:col-span-2">
-                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">Access</label>
-                        <select
-                            value={hostMode}
-                            onChange={e => setHostMode(e.target.value as 'remote' | 'localhost' | 'custom')}
-                            className="w-full bg-secondary border border-border text-foreground text-sm p-2 focus:border-primary outline-none transition-all"
+                        </Field>
+                        <Field label="Access" htmlFor="user-access" hint="Where this user may connect from.">
+                            <Select value={hostMode} onValueChange={(v) => setHostMode(v as 'remote' | 'localhost' | 'custom')}>
+                                <SelectTrigger id="user-access">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="remote">Anywhere (%)</SelectItem>
+                                    <SelectItem value="localhost">Localhost</SelectItem>
+                                    <SelectItem value="custom">Custom…</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </Field>
+                    </FormGrid>
+
+                    {hostMode === 'custom' && (
+                        <Field
+                            label="Allowed hosts"
+                            htmlFor="user-hosts"
+                            hint="Comma-separated, e.g. 10.0.0.5, 192.168.1.%"
                         >
-                            <option value="remote">Anywhere (%)</option>
-                            <option value="localhost">Localhost</option>
-                            <option value="custom">Custom…</option>
-                        </select>
-                    </div>
-                    <div className="md:col-span-2">
+                            <Input
+                                id="user-hosts"
+                                value={customHosts}
+                                onChange={e => setCustomHosts(e.target.value)}
+                                placeholder="%"
+                                className="font-mono"
+                            />
+                        </Field>
+                    )}
+
+                    <div className="flex justify-end">
                         <Button
                             ripple
-                            variant="outline"
                             onClick={handleCreateUser}
-                            disabled={!newUsername || !newPassword || !actorId || dbUsers.some((u: any) => u.username === newUsername)}
+                            disabled={!newUsername || !newPassword || !actorId || usernameTaken}
                             pending={creatingUser}
-                            pendingText="Creating..."
-                            className="w-full h-10"
+                            pendingText="Creating…"
                         >
-                            Create
+                            <i className="fa-solid fa-user-plus" /> Create user
                         </Button>
                     </div>
                 </div>
-                {hostMode === 'custom' && (
-                    <div className="mt-4">
-                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">
-                            Allowed hosts <span className="normal-case italic text-muted-foreground">(comma-separated, e.g. 10.0.0.5, 192.168.1.%)</span>
-                        </label>
-                        <Input
-                            value={customHosts}
-                            onChange={e => setCustomHosts(e.target.value)}
-                            placeholder="%"
-                            className="bg-background border-border font-mono text-sm focus:border-primary"
-                        />
-                    </div>
-                )}
-                <p className="text-xs text-muted-foreground mt-4 border-l-2 border-border pl-3">
-                    After creating a user, head to the <strong className="text-foreground">Assignments</strong> page to attach them to a database.
-                </p>
-                </div>
-            </div>
+            </Section>
 
-            <div className="rounded-sm border border-border bg-card">
-                <div className="flex items-center justify-between border-b border-border p-4">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">All Database Users</h3>
-                </div>
-                {loading && dbUsers.length === 0 ? (
-                    <TableRowsSkeleton rows={5} cols={4} />
-                ) : dbUsers.length === 0 ? (
-                    <EmptyState
-                        icon="fa-solid fa-users"
-                        title="No database users found"
-                        hint="Create a user above to get started."
-                        className="border-0"
-                    />
-                ) : (
-                    <Table>
-                        <TableHeader className="bg-secondary border-b border-border">
-                            <TableRow className="border-border">
-                                <TableHead className="font-bold text-foreground uppercase text-xs">Username</TableHead>
-                                <TableHead className="font-bold text-foreground uppercase text-xs hidden md:table-cell">UUID</TableHead>
-                                <TableHead className="font-bold text-foreground uppercase text-xs hidden md:table-cell">Created</TableHead>
-                                <TableHead className="font-bold text-foreground uppercase text-xs text-right pr-4">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <motion.tbody
-                            className="[&_tr:last-child]:border-0"
-                            variants={staggerContainer}
-                            initial="hidden"
-                            animate="show"
-                        >
-                            <AnimatePresence initial={false}>
-                                {dbUsers.map((u: any) => {
-                                    const count = dbCountForUser(u.user_uuid)
-                                    return (
-                                        <motion.tr
-                                            key={u.user_uuid}
-                                            layout
-                                            variants={listItem}
-                                            exit="exit"
-                                            className="border-b border-border transition-colors hover:bg-secondary/50"
-                                        >
-                                            <TableCell className="font-mono text-sm font-semibold text-foreground">{u.username}</TableCell>
-                                            <TableCell className="font-mono text-xs text-muted-foreground hidden md:table-cell">{u.user_uuid}</TableCell>
-                                            <TableCell className="font-mono text-xs text-muted-foreground hidden md:table-cell">
-                                                {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
-                                            </TableCell>
-                                            <TableCell className="text-right pr-4">
-                                                <div className="flex justify-end items-center gap-2">
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <span>
-                                                                <Badge
-                                                                    variant={count > 0 ? 'default' : 'secondary'}
-                                                                    className={`text-xs font-bold cursor-default ${count > 0 ? 'text-black' : 'text-muted-foreground'}`}
-                                                                >
-                                                                    {count > 0 ? `${count} DB${count > 1 ? 's' : ''}` : 'No DBs'}
-                                                                </Badge>
-                                                            </span>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="top" className="text-[10px]">
-                                                            {count > 0
-                                                                ? `Attached to ${count} database${count > 1 ? 's' : ''}`
-                                                                : 'Not attached to any database'}
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                    <Button
-                                                        ripple
-                                                        variant="destructive"
-                                                        size="sm"
-                                                        onClick={() => handleDeleteUser(u)}
-                                                        pending={busyKey === `del-u-${u.user_uuid}`}
-                                                        pendingText="Delete"
-                                                    >
-                                                        Delete
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </motion.tr>
-                                    )
-                                })}
-                            </AnimatePresence>
-                        </motion.tbody>
-                    </Table>
-                )}
-            </div>
+            <Section title="Database users" description="Every user provisioned under your account" icon="fa-solid fa-users" flush>
+                <DataTable
+                    columns={columns}
+                    rows={dbUsers}
+                    getRowId={(u) => u.user_uuid}
+                    loading={loading}
+                    empty={
+                        <EmptyState
+                            icon="fa-solid fa-users"
+                            title="No database users yet"
+                            hint="Create a user above, then attach it to a database in Assignments."
+                            action={
+                                <Button asChild variant="outline" size="sm">
+                                    <Link href="/databases/assignments">Go to Assignments</Link>
+                                </Button>
+                            }
+                        />
+                    }
+                />
+            </Section>
         </PageShell>
         </TooltipProvider>
     )

@@ -2,21 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'motion/react';
 import { getAttachedProjects, attachProject, detachProject } from '@/app/actions/github-projects';
 import { fetchUserRepos } from '@/app/actions/github-api';
 import { detectRepository } from '@/app/actions/detect';
 import { checkIntegrations } from '@/app/actions/settings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Alert } from '@/components/ui/alert';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { PageShell } from '@/components/PageShell';
+import { Section } from '@/components/ui/section';
+import { DataTable, type Column } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/EmptyState';
-import { ListSkeleton, TableRowsSkeleton } from '@/components/ui/skeleton';
-import { staggerContainer, listItem } from '@/lib/motion';
 
 export default function ProjectsPage() {
   const [attached, setAttached] = useState<any[]>([]);
@@ -33,17 +29,14 @@ export default function ProjectsPage() {
 
   const loadData = async () => {
     setIsLoading(true);
-    const [attachedData, githubData] = await Promise.all([
-      getAttachedProjects(),
-      fetchUserRepos()
-    ]);
+    const [attachedData, githubData] = await Promise.all([getAttachedProjects(), fetchUserRepos()]);
 
     setAttached(attachedData || []);
 
     if (githubData.success) {
       const attachedUrls = (attachedData || []).map((p: any) => p.url_path.toLowerCase());
-      const filtered = githubData.repos.filter((repo: any) =>
-        !attachedUrls.includes(repo.html_url.toLowerCase())
+      const filtered = githubData.repos.filter(
+        (repo: any) => !attachedUrls.includes(repo.html_url.toLowerCase()),
       );
       setAvailable(filtered);
     }
@@ -63,7 +56,7 @@ export default function ProjectsPage() {
       git_url: repo.clone_url,
       ssh_url: repo.ssh_url,
       visibility: repo.private ? 'private' : 'public',
-      branch: detection.success ? detection.default_branch : repo.default_branch
+      branch: detection.success ? detection.default_branch : repo.default_branch,
     };
 
     const result = await attachProject(projectData);
@@ -72,133 +65,173 @@ export default function ProjectsPage() {
   };
 
   const handleDetach = async (uuid: string) => {
-    if (!confirm('Are you sure? This cannot be undone.')) return;
+    if (!confirm('Detach this project? This cannot be undone.')) return;
     const result = await detachProject(uuid);
     if (result.success) await loadData();
   };
 
-  const filteredAvailable = available.filter(repo =>
-    repo.name.toLowerCase().includes(search.toLowerCase()) ||
-    repo.owner.login.toLowerCase().includes(search.toLowerCase())
-  ).sort((a, b) => a.name.localeCompare(b.name));
+  const filteredAvailable = available
+    .filter(
+      (repo) =>
+        repo.name.toLowerCase().includes(search.toLowerCase()) ||
+        repo.owner.login.toLowerCase().includes(search.toLowerCase()),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const attachedColumns: Column<any>[] = [
+    {
+      key: 'project',
+      header: 'Project',
+      render: (p) => (
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium text-foreground">{p.name}</span>
+            <Badge variant="secondary" className="shrink-0 text-[10px] uppercase">
+              {p.visibility}
+            </Badge>
+          </div>
+          <div className="truncate font-mono text-[10px] text-muted-foreground">{p.owner_login}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      align: 'right',
+      render: (p) => (
+        <div className="flex justify-end gap-2">
+          <Button asChild variant="ghost" size="sm">
+            <a href={p.url_path} target="_blank" rel="noreferrer">
+              <i className="fa-solid fa-arrow-up-right-from-square" /> Repo
+            </a>
+          </Button>
+          <Button variant="outline" tone="inactive" size="sm" onClick={() => handleDetach(p.project_uuid)}>
+            Detach
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  const availableColumns: Column<any>[] = [
+    {
+      key: 'repo',
+      header: 'Repository',
+      render: (r) => (
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium text-foreground">{r.name}</div>
+          <div className="truncate text-[10px] text-muted-foreground">
+            {r.owner.login} • {r.language || 'Code'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'action',
+      header: 'Action',
+      align: 'right',
+      render: (r) => (
+        <Button
+          ripple
+          size="sm"
+          pending={processingId === r.id}
+          pendingText="Attaching…"
+          onClick={() => handleAttach(r)}
+        >
+          <i className="fa-solid fa-plus" /> Attach
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <PageShell
       title="Projects"
-      description="Manage repositories and synchronization."
+      description="Attach GitHub repositories to deploy and manage them in Nydus."
+      meta={
+        <Badge variant="secondary" className="text-[10px] uppercase">
+          {attached.length} attached
+        </Badge>
+      }
       actions={
-        <Input
-          placeholder="Search repositories..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="bg-card border-border text-foreground min-w-64"
-        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={loadData}
+          pending={isLoading}
+          pendingText="Syncing…"
+        >
+          <i className="fa-solid fa-rotate" /> Sync
+        </Button>
       }
     >
-
       {!patKey && (
-        <Alert className="bg-amber-950/30 border-amber-700/50 text-amber-200 p-4">
-          <div className="flex items-center justify-between">
+        <Section className="border-amber-700/40 bg-amber-950/20">
+          <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
             <div className="flex items-center gap-3">
-              <i className="fa-solid fa-triangle-exclamation text-amber-500"></i>
-              <span><strong>Setup Required:</strong> Configure your GitHub PAT to sync repositories.</span>
+              <i className="fa-solid fa-triangle-exclamation text-amber-500" />
+              <div>
+                <p className="text-sm font-medium text-amber-200">GitHub not connected</p>
+                <p className="text-xs text-amber-200/70">
+                  Add a Personal Access Token to sync your repositories.
+                </p>
+              </div>
             </div>
-            <Link href="/settings?from=projects" className="text-amber-200 underline font-bold hover:text-amber-300 text-xs uppercase tracking-wide">
-              Setup Git Key →
-            </Link>
+            <Button asChild variant="outline" tone="warning" size="sm">
+              <Link href="/settings?from=projects">Configure token</Link>
+            </Button>
           </div>
-        </Alert>
+        </Section>
       )}
 
-      {/* SECTION: ATTACHED PROJECTS */}
-      <div className="space-y-4">
-        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-2">Attached Projects</h3>
-        {isLoading && attached.length === 0 ? (
-          <Card className="rounded-sm border border-border bg-card overflow-hidden">
-            <ListSkeleton rows={3} />
-          </Card>
-        ) : attached.length > 0 ? (
-          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid gap-4">
-            <AnimatePresence initial={false}>
-              {attached.map((project) => (
-                <motion.div key={project.project_uuid} variants={listItem} exit="exit" layout>
-                  <Card className="p-4 sm:p-6 border-border bg-card hover:border-primary transition-all duration-200 group">
-                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-0">
-                      <div className="w-full sm:w-auto">
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                          <h3 className="text-lg sm:text-xl font-bold text-foreground line-clamp-1">{project.name}</h3>
-                          <Badge variant="secondary" className="text-[10px] uppercase shrink-0">
-                            {project.visibility}
-                          </Badge>
-                        </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground font-mono mt-1 sm:mt-2 font-medium">
-                          {project.owner_login}
-                        </div>
-                      </div>
+      <Section title="Attached projects" description="Repositories connected to Nydus" icon="fa-solid fa-folder" flush>
+        <DataTable
+          columns={attachedColumns}
+          rows={attached}
+          getRowId={(p) => p.project_uuid}
+          loading={isLoading}
+          empty={
+            <EmptyState
+              icon="fa-solid fa-folder-open"
+              title="No projects attached"
+              hint="Attach a repository below to start deploying."
+            />
+          }
+        />
+      </Section>
 
-                      <div className="flex w-full sm:w-auto gap-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 mt-2 sm:mt-0">
-                        <Button size="sm" variant="destructive" onClick={() => handleDetach(project.project_uuid)} className="text-xs uppercase flex-1 sm:flex-none">
-                          Detach
-                        </Button>
-                        <Button asChild variant="secondary" size="sm" className="text-xs uppercase flex-1 sm:flex-none">
-                          <a href={project.url_path} target="_blank" rel="noreferrer">Repo</a>
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        ) : (
-          <EmptyState
-            icon="fa-solid fa-folder-open"
-            title="No projects attached"
-            hint="No projects attached to local database."
+      <Section
+        title="Available on GitHub"
+        description="Repositories you can attach"
+        icon="fa-brands fa-github"
+        flush
+        actions={
+          <Input
+            placeholder="Search repositories…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 w-44 sm:w-64"
           />
-        )}
-      </div>
-
-      {/* SECTION: AVAILABLE REPOSITORIES */}
-      <div className="space-y-4">
-        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-2">Available on GitHub</h3>
-        <Card className="border-border overflow-hidden bg-card">
-          {isLoading ? (
-            <TableRowsSkeleton rows={5} cols={2} />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border bg-secondary">
-                  <TableHead className="text-foreground font-bold uppercase text-xs px-4">Repository</TableHead>
-                  <TableHead className="text-right text-foreground font-bold uppercase text-xs px-4">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAvailable.map((repo) => (
-                  <TableRow key={repo.id} className="border-border hover:bg-secondary transition-colors">
-                    <TableCell>
-                      <div className="font-bold text-sm text-foreground">{repo.name}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{repo.owner.login} • {repo.language || 'Code'}</div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        ripple
-                        size="sm"
-                        pending={processingId === repo.id}
-                        pendingText="Attaching…"
-                        onClick={() => handleAttach(repo)}
-                        className="text-xs font-bold uppercase"
-                      >
-                        Attach Project
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </Card>
-      </div>
+        }
+      >
+        <DataTable
+          columns={availableColumns}
+          rows={filteredAvailable}
+          getRowId={(r) => r.id}
+          loading={isLoading}
+          empty={
+            <EmptyState
+              icon="fa-brands fa-github"
+              title={search ? 'No matching repositories' : 'No repositories found'}
+              hint={
+                patKey
+                  ? 'All your repositories are attached, or none match your search.'
+                  : 'Connect GitHub in Settings to see your repositories.'
+              }
+            />
+          }
+        />
+      </Section>
     </PageShell>
   );
 }

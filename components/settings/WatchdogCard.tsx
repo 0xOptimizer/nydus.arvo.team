@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { getWatchdog, setWatchdog } from '@/app/actions/watchdog';
 import { Switch } from '@/components/ui/switch';
 import { CardSkeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
+import { Section } from '@/components/ui/section';
+import { StatusChip, type ChipState } from '@/components/StatusChip';
 
 const POLL_MS = 15_000;
 
@@ -44,42 +45,54 @@ export function WatchdogCard() {
     // enabled but still in the startup grace window
     const inGrace = alertsEnabled && !alertingNow && graceRemaining > 0;
 
+    const alertState: ChipState = alertingNow ? 'ok' : alertsEnabled ? 'warn' : 'unknown';
+    const alertLabel = alertingNow
+        ? 'Alerting active'
+        : inGrace
+            ? `Alerts begin in ${graceRemaining}s`
+            : alertsEnabled
+                ? 'Enabled'
+                : 'Disabled';
+
     if (loading && !status) {
         return <CardSkeleton rows={2} />;
     }
 
     return (
-        <div className="rounded-sm border border-border bg-card">
-            <div className="flex items-center gap-3 border-b border-border p-4">
-                <i className="fa-solid fa-shield-dog text-base text-muted-foreground" />
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Health Watchdog</h3>
-            </div>
-
+        <Section
+            title="Health Watchdog"
+            description="Detects failing targets and optionally recovers them."
+            icon="fa-solid fa-shield-dog"
+            actions={
+                status ? (
+                    <StatusChip label={alertLabel} state={alertState} pulse={alertingNow} />
+                ) : undefined
+            }
+            footer={
+                status ? (
+                    <p className="text-[10px] text-muted-foreground">
+                        Fail threshold: <span className="font-mono">{status.fail_threshold ?? '—'}</span> ·
+                        Grace window: <span className="font-mono">{status.grace_seconds ?? '—'}s</span>
+                    </p>
+                ) : undefined
+            }
+        >
             {!status ? (
-                <p className="p-4 sm:p-6 text-sm text-muted-foreground">Watchdog status unavailable (backend unreachable).</p>
+                <p className="text-sm text-muted-foreground">
+                    Watchdog status unavailable (backend unreachable).
+                </p>
             ) : (
-                <div className="space-y-5 p-4 sm:p-6">
+                <div className="space-y-4">
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <p className="text-sm font-medium">Alerting</p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
                                 Resets to off on every backend restart, so reboots start quiet. Detection keeps
                                 running while alerting is off.
+                                {inGrace && (
+                                    <span className="text-amber-500"> Startup grace window active.</span>
+                                )}
                             </p>
-                            <div className="mt-2 flex items-center gap-2 text-xs">
-                                <span className={cn('inline-block h-1.5 w-1.5 rounded-full',
-                                    alertingNow ? 'bg-green-500' : alertsEnabled ? 'bg-amber-500' : 'bg-muted-foreground/40')} />
-                                <span className={cn('font-medium',
-                                    alertingNow ? 'text-green-500' : alertsEnabled ? 'text-amber-500' : 'text-muted-foreground')}>
-                                    {alertingNow
-                                        ? 'Alerting active'
-                                        : inGrace
-                                            ? `Enabled — alerts begin in ${graceRemaining}s (startup grace)`
-                                            : alertsEnabled
-                                                ? 'Enabled'
-                                                : 'Disabled'}
-                                </span>
-                            </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                             {busy === 'alerts_enabled' && (
@@ -113,14 +126,9 @@ export function WatchdogCard() {
                             </div>
                         </div>
                     )}
-
-                    <p className="text-[10px] text-muted-foreground">
-                        Fail threshold: <span className="font-mono">{status.fail_threshold ?? '—'}</span> ·
-                        Grace window: <span className="font-mono">{status.grace_seconds ?? '—'}s</span>
-                    </p>
                 </div>
             )}
-        </div>
+        </Section>
     );
 }
 

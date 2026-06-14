@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { PageShell } from '@/components/PageShell';
+import { Section } from '@/components/ui/section';
+import { StatusChip } from '@/components/StatusChip';
 import { SelfTestPanel } from '@/components/maintenance/SelfTestPanel';
 import { ServicesSection } from '@/components/maintenance/ServicesSection';
 
@@ -37,16 +39,22 @@ const PortControlSection = () => {
     };
 
     return (
-        <div className="rounded-sm border border-border bg-card w-full">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 sm:p-6">
-                <div>
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                        Public API Gateway
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        Status control for Public Port 5013
-                    </p>
-                </div>
+        <Section
+            title="Public API Gateway"
+            description="Status control for public port 5013"
+            icon="fa-solid fa-network-wired"
+            actions={
+                <StatusChip
+                    label={portActive ? 'Online' : 'Offline'}
+                    state={portActive ? 'ok' : 'fail'}
+                    pulse={portActive}
+                />
+            }
+        >
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                    Toggle the public-facing port that fronts the Nydus API gateway.
+                </p>
                 <Button
                     ripple
                     variant="outline"
@@ -54,16 +62,16 @@ const PortControlSection = () => {
                     pending={isToggling}
                     pendingText="Synchronizing…"
                     onClick={() => handleTogglePort(portActive ? 'stop' : 'start')}
-                    className="w-full sm:w-auto px-8 text-xs font-bold uppercase tracking-widest"
+                    className="w-full shrink-0 px-8 sm:w-auto"
                 >
-                    {`Port 5013: ${portActive ? 'Online' : 'Offline'}`}
+                    {portActive ? 'Take port offline' : 'Bring port online'}
                 </Button>
             </div>
-        </div>
+        </Section>
     );
 };
 
-const ServiceSection = ({
+const PullUpdatesSection = ({
     title,
     serviceId,
     description,
@@ -140,50 +148,41 @@ const ServiceSection = ({
     };
 
     return (
-        <div className="rounded-sm border border-border bg-card w-full min-w-0">
-            <div className="p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                    <div>
-                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                            {title}
-                        </h3>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            {description}
-                        </p>
-                    </div>
-
-                    <Button
-                        ripple
-                        variant="outline"
-                        tone={isProcessing ? 'none' : 'active'}
-                        pending={isProcessing}
-                        pendingText="Syncing…"
-                        onClick={handleRestart}
-                        className="w-[192px] text-xs font-bold uppercase tracking-widest"
-                    >
-                        Pull Updates
-                    </Button>
-                </div>
-
+        <Section
+            title={title}
+            description={description}
+            icon="fa-solid fa-cloud-arrow-down"
+            actions={
+                <Button
+                    ripple
+                    variant="outline"
+                    tone={isProcessing ? 'none' : 'active'}
+                    pending={isProcessing}
+                    pendingText="Syncing…"
+                    onClick={handleRestart}
+                >
+                    <i className="fa-solid fa-rotate" /> Pull updates
+                </Button>
+            }
+        >
+            <div className="space-y-4">
                 {progress && (
-                    <Alert className="mb-4 text-xs font-bold border">
-                        {progress.message}
-                    </Alert>
+                    <Alert className="text-xs font-bold border">{progress.message}</Alert>
                 )}
 
                 <div className="relative w-full">
-                    <div className="absolute top-0 right-0 bg-secondary px-2 py-1 text-[9px] font-bold uppercase z-10">
+                    <div className="absolute top-0 right-0 z-10 bg-secondary px-2 py-1 text-[9px] font-bold uppercase">
                         Live Console
                     </div>
                     <pre
                         ref={logRef}
-                        className="bg-background/40 text-white w-full h-[480px] p-4 pt-8 md:text-[16px] text-sm overflow-y-auto whitespace-pre rounded-sm border border-border shadow-inner"
+                        className="h-[480px] w-full overflow-y-auto whitespace-pre rounded-sm border border-border bg-background/40 p-4 pt-8 text-sm text-white shadow-inner md:text-[16px]"
                     >
                         {logs.join('\n')}
                     </pre>
                 </div>
             </div>
-        </div>
+        </Section>
     );
 };
 
@@ -200,19 +199,11 @@ export default function MaintenancePage() {
 
             <ServicesSection />
 
-            <div className="space-y-4">
-                <div>
-                    <h3 className="text-lg font-bold uppercase tracking-tight">Pull Updates</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        Git-pull and restart for the main site, with a live console.
-                    </p>
-                </div>
-                <ServiceSection
-                    title="arvo.team"
-                    serviceId="arvo-team"
-                    description="Main website instance"
-                />
-            </div>
+            <PullUpdatesSection
+                title="arvo.team"
+                serviceId="arvo-team"
+                description="Git-pull and restart the main site, with a live console."
+            />
         </PageShell>
     );
 }

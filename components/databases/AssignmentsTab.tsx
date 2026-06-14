@@ -1,20 +1,25 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { AnimatePresence, motion } from 'motion/react'
 import { useDatabaseContext } from '@/app/databases/context/DatabaseContext'
 import {
     grantPrivileges, revokePrivileges,
     getPmaToken
 } from '@/app/actions/databases'
-import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/EmptyState'
 import { PageShell } from '@/components/PageShell'
+import { Section } from '@/components/ui/section'
+import { Field } from '@/components/ui/field'
 import { staggerContainer, staggerItem, listItem } from '@/lib/motion'
 
 const PRIVILEGE_OPTIONS = [
@@ -114,7 +119,15 @@ export default function AssignmentsTab() {
 
     return (
         <TooltipProvider>
-        <PageShell title="Assignments" description="Drag a user onto a database to grant access.">
+        <PageShell
+            title="Assignments"
+            description="Drag a user from the left onto a database to grant access."
+            meta={
+                <Badge variant="secondary" className="text-[10px] uppercase">
+                    {privileges.length} grant{privileges.length === 1 ? '' : 's'}
+                </Badge>
+            }
+        >
             {error && (
                 <Alert variant="destructive">
                     <AlertDescription>{error}</AlertDescription>
@@ -127,38 +140,58 @@ export default function AssignmentsTab() {
             )}
 
             {pendingAssign && (
-                <Card className="rounded-sm p-4 border-primary/40 bg-primary/5">
-                    <p className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">
-                        <i className="fa-solid fa-arrow-right mr-2 text-primary" />
-                        Assign <span className="text-primary font-mono">{pendingAssign.user.username}</span> to <span className="text-primary font-mono">{pendingAssign.db.database_name}</span>
-                    </p>
-                    <div className="flex items-center gap-3">
-                        <select
-                            value={assignPriv}
-                            onChange={e => setAssignPriv(e.target.value)}
-                            className="bg-secondary border border-border text-foreground text-xs font-mono p-2 outline-none focus:border-primary transition-all flex-1 max-w-xs"
+                <Section className="border-primary/40 bg-primary/5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                        <Field
+                            label="Privileges"
+                            hint={
+                                <>
+                                    Granting to <span className="font-mono text-foreground">{pendingAssign.user.username}</span> on{' '}
+                                    <span className="font-mono text-foreground">{pendingAssign.db.database_name}</span>
+                                </>
+                            }
+                            className="flex-1 sm:max-w-xs"
                         >
-                            {PRIVILEGE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                        <Button onClick={handleConfirmAssign} pending={assigning} pendingText="Confirm">
-                            <i className="fa-solid fa-check" />Confirm
-                        </Button>
-                        <Button variant="outline" onClick={() => setPendingAssign(null)}>Cancel</Button>
+                            <Select value={assignPriv} onValueChange={setAssignPriv}>
+                                <SelectTrigger className="font-mono text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {PRIVILEGE_OPTIONS.map(p => (
+                                        <SelectItem key={p} value={p} className="font-mono text-xs">{p}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </Field>
+                        <div className="flex shrink-0 gap-2">
+                            <Button ripple onClick={handleConfirmAssign} pending={assigning} pendingText="Granting…">
+                                <i className="fa-solid fa-check" /> Confirm
+                            </Button>
+                            <Button variant="outline" onClick={() => setPendingAssign(null)}>Cancel</Button>
+                        </div>
                     </div>
-                </Card>
+                </Section>
             )}
 
-            <div className="flex gap-4 min-h-[500px]">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_1fr]">
 
-                <div className="w-1/5 shrink-0">
-                    <div className="sticky top-20">
-                        <div className="bg-secondary border border-border px-3 py-2 mb-0.5">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Users</p>
+                {/* Users palette */}
+                <Section title="Users" description="Drag onto a database" icon="fa-solid fa-users" flush className="self-start">
+                    {dbUsers.length === 0 ? (
+                        <div className="p-4 sm:p-6">
+                            <EmptyState
+                                icon="fa-solid fa-users"
+                                title="No users yet"
+                                hint="Create a database user to assign access."
+                                action={
+                                    <Button asChild variant="outline" size="sm">
+                                        <Link href="/databases/users">Create a user</Link>
+                                    </Button>
+                                }
+                            />
                         </div>
-                        <div className="border border-t-0 border-border bg-card">
-                            {dbUsers.length === 0 && (
-                                <p className="p-4 text-xs text-muted-foreground italic text-center">No users yet.</p>
-                            )}
+                    ) : (
+                        <div className="divide-y divide-border">
                             {dbUsers.map((u: any) => (
                                 <div
                                     key={u.user_uuid}
@@ -166,31 +199,38 @@ export default function AssignmentsTab() {
                                     onDragStart={() => setDragUser(u)}
                                     onDragEnd={() => setDragUser(null)}
                                     className={`
-                                        px-3 py-2.5 border-b border-border/50 cursor-grab active:cursor-grabbing
-                                        select-none transition-all hover:bg-secondary/60
-                                        ${dragUser?.user_uuid === u.user_uuid ? 'opacity-40 scale-95' : 'opacity-100'}
+                                        cursor-grab select-none px-4 py-2.5 transition-all active:cursor-grabbing hover:bg-secondary/60
+                                        ${dragUser?.user_uuid === u.user_uuid ? 'scale-95 opacity-40' : 'opacity-100'}
                                     `}
                                 >
-                                    <p className="font-mono text-xs font-semibold text-foreground truncate">{u.username}</p>
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    <p className="truncate font-mono text-xs font-medium text-foreground">{u.username}</p>
+                                    <p className="mt-0.5 text-[10px] text-muted-foreground">
                                         {dbCountForUser(u.user_uuid)} database{dbCountForUser(u.user_uuid) !== 1 ? 's' : ''}
                                     </p>
                                 </div>
                             ))}
                         </div>
-                    </div>
-                </div>
+                    )}
+                </Section>
 
-                <div className="flex-1">
+                {/* Databases drop targets */}
+                <Section title="Databases" description="Drop a user here to grant access" icon="fa-solid fa-database" flush>
                     {databases.length === 0 ? (
-                        <EmptyState
-                            icon="fa-solid fa-database"
-                            title="No databases provisioned yet"
-                            hint="Provision a database first, then drag users here to assign access."
-                        />
+                        <div className="p-4 sm:p-6">
+                            <EmptyState
+                                icon="fa-solid fa-database"
+                                title="No databases provisioned yet"
+                                hint="Provision a database first, then drag users here to assign access."
+                                action={
+                                    <Button asChild variant="outline" size="sm">
+                                        <Link href="/databases">Go to Databases</Link>
+                                    </Button>
+                                }
+                            />
+                        </div>
                     ) : (
                         <motion.div
-                            className="space-y-3"
+                            className="space-y-3 p-4 sm:p-6"
                             variants={staggerContainer}
                             initial="hidden"
                             animate="show"
@@ -206,24 +246,24 @@ export default function AssignmentsTab() {
                                         onDragLeave={() => setDragOverDb(null)}
                                         onDrop={() => handleDrop(db)}
                                         className={`
-                                            border bg-card transition-all duration-150
+                                            rounded-sm border bg-card transition-all duration-150
                                             ${isOver
-                                                ? 'border-primary border-dashed bg-primary/5 shadow-[0_0_0_1px_hsl(var(--primary)/0.3)]'
+                                                ? 'border-dashed border-primary bg-primary/5 shadow-[0_0_0_1px_hsl(var(--primary)/0.3)]'
                                                 : 'border-border'}
                                         `}
                                     >
-                                        <div className={`px-4 py-3 border-b flex items-center justify-between transition-colors ${isOver ? 'border-primary/30 bg-primary/5' : 'border-border bg-secondary/40'}`}>
+                                        <div className={`flex items-center justify-between border-b px-4 py-3 transition-colors ${isOver ? 'border-primary/30 bg-primary/5' : 'border-border bg-secondary/40'}`}>
                                             <div className="flex items-center gap-3">
-                                                <Badge variant="default" className="text-[10px] font-bold uppercase text-black shrink-0">{db.database_type}</Badge>
+                                                <Badge variant="secondary" className="shrink-0 text-[10px] font-bold uppercase">{db.database_type}</Badge>
                                                 <span className="font-mono text-sm font-bold text-foreground">{db.database_name}</span>
                                                 {db.allowed_hosts === '*' || db.allowed_hosts === '%'
-                                                    ? <Badge variant="outline" className="text-[10px] text-yellow-500 border-yellow-800/50"><i className="fa-solid fa-earth-americas mr-1" />All Hosts</Badge>
-                                                    : <span className="text-[10px] text-muted-foreground font-mono">{db.allowed_hosts}</span>
+                                                    ? <Badge variant="outline" className="text-[10px] text-amber-500"><i className="fa-solid fa-earth-americas mr-1" />All hosts</Badge>
+                                                    : <span className="font-mono text-[10px] text-muted-foreground">{db.allowed_hosts}</span>
                                                 }
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 {isOver && dragUser && (
-                                                    <span className="text-[10px] text-primary font-bold animate-pulse">
+                                                    <span className="animate-pulse text-[10px] font-bold text-primary">
                                                         <i className="fa-solid fa-arrow-down mr-1" />Drop to assign {dragUser.username}
                                                     </span>
                                                 )}
@@ -238,7 +278,7 @@ export default function AssignmentsTab() {
                                                                     onClick={() => handlePmaClick(db)}
                                                                     disabled={attached.length === 0}
                                                                 >
-                                                                    <i className="fa-solid fa-table-cells" />
+                                                                    <i className="fa-solid fa-table-cells" /> Open
                                                                 </Button>
                                                             </span>
                                                         </TooltipTrigger>
@@ -248,9 +288,9 @@ export default function AssignmentsTab() {
                                             </div>
                                         </div>
 
-                                        <div className="px-4 py-3 min-h-[52px] flex flex-wrap gap-2 items-center">
+                                        <div className="flex min-h-[52px] flex-wrap items-center gap-2 px-4 py-3">
                                             {attached.length === 0 && !isOver && (
-                                                <span className="text-xs text-muted-foreground/50 italic">No users assigned — drag one here</span>
+                                                <span className="text-xs italic text-muted-foreground/50">No users assigned — drag one here</span>
                                             )}
                                             <AnimatePresence initial={false}>
                                                 {attached.map((p: any) => (
@@ -261,14 +301,15 @@ export default function AssignmentsTab() {
                                                         initial="hidden"
                                                         animate="show"
                                                         exit="exit"
-                                                        className="flex items-center gap-1.5 bg-secondary border border-border px-2.5 py-1 text-xs font-mono"
+                                                        className="flex items-center gap-1.5 rounded-sm border border-border bg-secondary px-2.5 py-1 font-mono text-xs"
                                                     >
                                                         <span className="text-foreground">{p.username}</span>
-                                                        <span className="text-muted-foreground/50 text-[10px]">{p.privileges}</span>
+                                                        <span className="text-[10px] text-muted-foreground/50">{p.privileges}</span>
                                                         <button
                                                             onClick={() => handleRevokeAssignment(db.database_uuid, db.database_name, db.database_type, p.user_uuid, p.username)}
                                                             disabled={busyKey === `rev-${db.database_uuid}-${p.user_uuid}`}
-                                                            className="text-muted-foreground hover:text-red-400 transition-colors ml-1 disabled:opacity-50"
+                                                            className="ml-1 text-muted-foreground transition-colors hover:text-red-500 disabled:opacity-50"
+                                                            aria-label={`Remove ${p.username}`}
                                                         >
                                                             {busyKey === `rev-${db.database_uuid}-${p.user_uuid}`
                                                                 ? <i className="fa-solid fa-spinner fa-spin text-[10px]" />
@@ -278,7 +319,7 @@ export default function AssignmentsTab() {
                                                 ))}
                                             </AnimatePresence>
                                             {isOver && dragUser && !isUserAttached(db.database_uuid, dragUser.user_uuid) && (
-                                                <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/40 border-dashed px-2.5 py-1 text-xs font-mono text-primary animate-pulse">
+                                                <div className="flex animate-pulse items-center gap-1.5 rounded-sm border border-dashed border-primary/40 bg-primary/10 px-2.5 py-1 font-mono text-xs text-primary">
                                                     <i className="fa-solid fa-plus text-[10px]" />{dragUser.username}
                                                 </div>
                                             )}
@@ -288,18 +329,18 @@ export default function AssignmentsTab() {
                             })}
                         </motion.div>
                     )}
-                </div>
+                </Section>
             </div>
 
             <Dialog open={!!pmaDb} onOpenChange={open => { if (!open) { setPmaDb(null); setPmaUsers([]) } }}>
-                <DialogContent className="bg-card border-border max-w-sm">
+                <DialogContent className="max-w-sm border-border bg-card">
                     <DialogHeader>
                         <DialogTitle className="text-sm font-bold uppercase tracking-wider">
                             <i className="fa-solid fa-table-cells mr-2 text-orange-400" />
                             Open phpMyAdmin
                         </DialogTitle>
                     </DialogHeader>
-                    <p className="text-xs text-muted-foreground mb-4">
+                    <p className="mb-4 text-xs text-muted-foreground">
                         Multiple users are attached to <span className="font-mono text-foreground">{pmaDb?.database_name}</span>. Select which account to log in with.
                     </p>
                     <div className="space-y-2">
@@ -308,11 +349,11 @@ export default function AssignmentsTab() {
                                 key={p.user_uuid}
                                 onClick={() => redirectToPma(p.user_uuid)}
                                 disabled={pmaLoading}
-                                className="w-full flex items-center justify-between px-4 py-3 bg-secondary hover:bg-border border border-border transition-colors text-left disabled:opacity-50 cursor-pointer"
+                                className="flex w-full cursor-pointer items-center justify-between border border-border bg-secondary px-4 py-3 text-left transition-colors hover:bg-border disabled:opacity-50"
                             >
                                 <div>
-                                    <p className="text-sm font-mono font-semibold text-foreground">{p.username}</p>
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">{p.privileges}</p>
+                                    <p className="font-mono text-sm font-semibold text-foreground">{p.username}</p>
+                                    <p className="mt-0.5 text-[10px] text-muted-foreground">{p.privileges}</p>
                                 </div>
                                 {pmaLoading
                                     ? <i className="fa-solid fa-spinner fa-spin text-muted-foreground" />

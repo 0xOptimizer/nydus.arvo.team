@@ -5,14 +5,14 @@ import { cn } from '@/lib/utils';
 
 const STEPS = [
     { icon: 'fa-link',    title: 'Attach a repository', body: 'On the Projects page, attach a GitHub repo (paste a PAT in Settings first if you haven’t).' },
-    { icon: 'fa-rocket',  title: 'Deploy with a subdomain', body: 'Click Deploy and pick a subdomain. Nydus clones, builds, and serves it at <subdomain>.arvo.team.' },
-    { icon: 'fa-shield-halved', title: 'DNS + SSL are automatic', body: 'A Cloudflare A record and a Let’s Encrypt certificate are provisioned for you — no manual steps.' },
+    { icon: 'fa-rocket',  title: 'Deploy with a domain', body: 'Click Deploy and choose how it’s served — a free <name>.arvo.team subdomain, or a custom Cloudflare / external domain. Nydus clones, builds, and serves it.' },
+    { icon: 'fa-shield-halved', title: 'DNS + SSL handled for you', body: 'Subdomain and Cloudflare deployments get their DNS record and a Let’s Encrypt certificate automatically. For external domains, point an A record at the server first.' },
     { icon: 'fa-code-branch', title: 'Push to redeploy', body: 'Configure the deployment webhook (Webhook tab) so pushes to your branch rebuild automatically.' },
 ];
 
 /**
  * Collapsible "How to deploy" guide. Shown on the deployments list and detail
- * pages. Custom domains are a backend feature still to come.
+ * pages.
  */
 export function DeployInstructions({ defaultOpen = false }: { defaultOpen?: boolean }) {
     const [open, setOpen] = useState(defaultOpen);
@@ -51,7 +51,7 @@ export function DeployInstructions({ defaultOpen = false }: { defaultOpen?: bool
 
                     <div className="flex items-center gap-2 rounded-sm border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
                         <i className="fa-solid fa-globe" />
-                        <span><span className="font-medium text-foreground">Custom domains</span> &mdash; coming soon. For now every deployment lives under <span className="font-mono">.arvo.team</span>.</span>
+                        <span><span className="font-medium text-foreground">Custom domains</span> are supported &mdash; choose <span className="font-mono">Cloudflare</span> (automated) or <span className="font-mono">External</span> (point your A record first) in the deploy dialog.</span>
                     </div>
                 </div>
             )}

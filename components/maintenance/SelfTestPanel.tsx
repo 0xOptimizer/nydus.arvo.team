@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useStreamDock } from '@/context/StreamDockContext';
 import { startSelfTest, getSelftestStatus } from '@/app/actions/selftest';
 import { formatRelativeTime } from '@/lib/format';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Section } from '@/components/ui/section';
 import { SegmentedControl } from '@/components/ui/segmented';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
@@ -67,59 +67,63 @@ export function SelfTestPanel() {
     };
 
     return (
-        <Card className="rounded-sm p-4 sm:p-6 border-border bg-card">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Self-test</h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        Runs the real deploy pipeline against throwaway fixtures (staging certs), then tears it down.
-                        Confirms deploys still work end-to-end.
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                        <SegmentedControl<Variant>
-                            multiple
-                            size="sm"
-                            value={selected}
-                            onChange={(v) => setSelected(v)}
-                            options={VARIANTS.map(v => ({ value: v, label: v }))}
-                        />
-                        <span className="self-center pl-1 text-[10px] text-muted-foreground">
-                            {selected.length ? '' : '(all variants)'}
-                        </span>
-                    </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
+        <Section
+            title="Self-test"
+            description="Runs the real deploy pipeline against throwaway fixtures, then tears it down."
+            icon="fa-solid fa-flask"
+            actions={
+                <div className="flex items-center gap-2">
                     {active ? (
                         <Button variant="outline" onClick={() => watch(active.run_id)}>
-                            <i className="fa-solid fa-eye mr-2" />Watch
+                            <i className="fa-solid fa-eye" /> Watch
                         </Button>
                     ) : null}
-                    <Button onClick={run} disabled={!!active} pending={starting} pendingText="Starting…">
-                        <i className="fa-solid fa-flask mr-2" />Run self-test
+                    <Button ripple onClick={run} disabled={!!active} pending={starting} pendingText="Starting…">
+                        <i className="fa-solid fa-flask" /> Run self-test
                     </Button>
                 </div>
+            }
+        >
+            <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                    Confirms deploys still work end-to-end using staging certs. Pick variants to scope the
+                    run, or leave all unselected to test everything.
+                </p>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <SegmentedControl<Variant>
+                        multiple
+                        size="sm"
+                        value={selected}
+                        onChange={(v) => setSelected(v)}
+                        options={VARIANTS.map(v => ({ value: v, label: v }))}
+                    />
+                    <span className="self-center pl-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {selected.length ? `${selected.length} selected` : 'All variants'}
+                    </span>
+                </div>
+
+                {active && (
+                    <Alert className="border-amber-500/40 text-amber-500">
+                        <AlertDescription className="text-xs">
+                            A self-test is already running
+                            {active.started_by && <> (started by {active.started_by}</>}
+                            {active.started_at && <>, {formatRelativeTime(active.started_at)}</>}
+                            {active.started_by && <>)</>}. Use <strong>Watch</strong> to follow it.
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                {notice && !active && (
+                    <Alert
+                        variant={notice.kind === 'error' ? 'destructive' : 'default'}
+                        className={cn(notice.kind === 'warn' && 'border-amber-500/40 text-amber-500')}
+                    >
+                        <AlertDescription>{notice.msg}</AlertDescription>
+                    </Alert>
+                )}
             </div>
-
-            {active && (
-                <Alert className="mt-4 border-amber-500/40 text-amber-500">
-                    <AlertDescription className="text-xs">
-                        A self-test is already running
-                        {active.started_by && <> (started by {active.started_by}</>}
-                        {active.started_at && <>, {formatRelativeTime(active.started_at)}</>}
-                        {active.started_by && <>)</>}. Use <strong>Watch</strong> to follow it.
-                    </AlertDescription>
-                </Alert>
-            )}
-
-            {notice && !active && (
-                <Alert
-                    variant={notice.kind === 'error' ? 'destructive' : 'default'}
-                    className={cn('mt-4', notice.kind === 'warn' && 'border-amber-500/40 text-amber-500')}
-                >
-                    <AlertDescription>{notice.msg}</AlertDescription>
-                </Alert>
-            )}
-        </Card>
+        </Section>
     );
 }
 

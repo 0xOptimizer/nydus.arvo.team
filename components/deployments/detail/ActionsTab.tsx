@@ -6,12 +6,14 @@ import {
 } from '@/app/actions/deployment-control';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Section } from '@/components/ui/section';
 
 type ActionFn = () => Promise<{ success: boolean; status?: string; detail?: string; error?: string }>;
 
 function ActionGroup({
     title,
     description,
+    icon,
     actions,
     onRun,
     busyKey,
@@ -20,6 +22,7 @@ function ActionGroup({
 }: {
     title: string;
     description: string;
+    icon?: string;
     actions: { key: string; label: string; fn: ActionFn; confirm?: string; danger?: boolean }[];
     onRun: (key: string, fn: ActionFn, confirmMsg?: string) => void;
     busyKey: string | null;
@@ -27,10 +30,8 @@ function ActionGroup({
     disabledNote?: string;
 }) {
     return (
-        <div className="rounded-sm border border-border bg-card p-4">
-            <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{title}</h4>
-            <p className="mt-1 text-xs text-muted-foreground">{disabled && disabledNote ? disabledNote : description}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
+        <Section title={title} description={disabled && disabledNote ? disabledNote : description} icon={icon}>
+            <div className="flex flex-wrap gap-2">
                 {actions.map(a => (
                     <Button
                         key={a.key}
@@ -45,7 +46,7 @@ function ActionGroup({
                     </Button>
                 ))}
             </div>
-        </div>
+        </Section>
     );
 }
 
@@ -86,6 +87,7 @@ export function ActionsTab({ deploymentUuid, stack, dnsMode }: { deploymentUuid:
 
             <ActionGroup
                 title="Process"
+                icon="fa-solid fa-microchip"
                 description={isNode ? 'Control the pm2 process for this app.' : 'Process control is only available for node apps.'}
                 disabled={!isNode}
                 disabledNote="Process control is only available for node apps."
@@ -102,6 +104,7 @@ export function ActionsTab({ deploymentUuid, stack, dnsMode }: { deploymentUuid:
 
             <ActionGroup
                 title="Nginx"
+                icon="fa-solid fa-server"
                 description="Manage the nginx site for this deployment."
                 busyKey={busyKey}
                 onRun={run}
@@ -116,21 +119,22 @@ export function ActionsTab({ deploymentUuid, stack, dnsMode }: { deploymentUuid:
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <ActionGroup
                     title="SSL"
+                    icon="fa-solid fa-lock"
                     description="Renew the certificate (no-op unless within ~30 days of expiry)."
                     busyKey={busyKey}
                     onRun={run}
                     actions={[{ key: 'ssl', label: 'Renew certificate', fn: () => renewSsl(deploymentUuid) }]}
                 />
                 {isExternal ? (
-                    <div className="rounded-sm border border-border bg-card p-4">
-                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">DNS</h4>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            DNS is client-managed for external domains — nydus doesn’t reconcile it.
-                        </p>
-                    </div>
+                    <Section
+                        title="DNS"
+                        icon="fa-solid fa-globe"
+                        description="DNS is client-managed for external domains — nydus doesn’t reconcile it."
+                    />
                 ) : (
                     <ActionGroup
                         title="DNS"
+                        icon="fa-solid fa-globe"
                         description="Force the Cloudflare A record back to the correct IP + proxied."
                         busyKey={busyKey}
                         onRun={run}
@@ -140,10 +144,9 @@ export function ActionsTab({ deploymentUuid, stack, dnsMode }: { deploymentUuid:
             </div>
 
             {config && (config.nginx_config || config.package_scripts) && (
-                <div className="rounded-sm border border-border bg-card p-4">
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Configuration</h4>
+                <Section title="Configuration" icon="fa-solid fa-file-lines" description="Resolved nginx and package configuration">
                     {config.package_scripts && (
-                        <div className="mt-2">
+                        <div>
                             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">package scripts</p>
                             <pre className="mt-1 overflow-x-auto rounded-sm border border-border bg-background/40 p-2 font-mono text-xs">
                                 {JSON.stringify(config.package_scripts, null, 2)}
@@ -158,7 +161,7 @@ export function ActionsTab({ deploymentUuid, stack, dnsMode }: { deploymentUuid:
                             </pre>
                         </div>
                     )}
-                </div>
+                </Section>
             )}
         </div>
     );

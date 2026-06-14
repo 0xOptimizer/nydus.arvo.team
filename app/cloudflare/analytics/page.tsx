@@ -8,7 +8,11 @@ const AnalyticsPanel = dynamic(() => import('@/components/cloudflare/AnalyticsPa
 
 export default function CloudflareAnalyticsPage() {
     return (
-        <PageShell title="Cloudflare" description="Traffic analytics for arvo.team and its subdomains.">
+        <PageShell
+            title="Cloudflare Analytics"
+            description="Traffic analytics for arvo.team and its subdomains."
+            backHref="/cloudflare"
+        >
             <AnalyticsPanel />
         </PageShell>
     );

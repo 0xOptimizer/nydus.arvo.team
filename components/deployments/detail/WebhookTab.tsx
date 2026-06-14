@@ -5,6 +5,7 @@ import { getWebhook, createWebhook, deleteWebhook } from '@/app/actions/deployme
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CardSkeleton } from '@/components/ui/skeleton';
+import { Field } from '@/components/ui/field';
 import { EmptyState } from '@/components/EmptyState';
 import { cn } from '@/lib/utils';
 
@@ -14,8 +15,7 @@ function CopyField({ label, value, mono = true }: { label: string; value: string
         try { await navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
     };
     return (
-        <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{label}</label>
+        <Field label={label}>
             <div className="flex items-center gap-2">
                 <code className={cn('flex-1 truncate rounded-sm border border-border bg-background/40 px-2.5 py-1.5 text-xs', mono && 'font-mono')}>
                     {value}
@@ -24,7 +24,7 @@ function CopyField({ label, value, mono = true }: { label: string; value: string
                     <i className={cn('fa-solid', copied ? 'fa-check text-green-500' : 'fa-copy')} />
                 </Button>
             </div>
-        </div>
+        </Field>
     );
 }
 
@@ -73,8 +73,8 @@ export function WebhookTab({ deploymentUuid }: { deploymentUuid: string }) {
                     title="No webhook configured"
                     hint="Create a webhook so pushes to your branch rebuild this deployment automatically."
                     action={
-                        <Button onClick={handleCreate} pending={busy} pendingText="Creating…">
-                            Create webhook
+                        <Button ripple onClick={handleCreate} pending={busy} pendingText="Creating…">
+                            <i className="fa-solid fa-plus" /> Create webhook
                         </Button>
                     }
                 />
@@ -96,8 +96,7 @@ export function WebhookTab({ deploymentUuid }: { deploymentUuid: string }) {
                 </p>
             )}
 
-            <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Secret</label>
+            <Field label="Secret">
                 <div className="flex items-center gap-2">
                     <code className="flex-1 truncate rounded-sm border border-border bg-background/40 px-2.5 py-1.5 font-mono text-xs">
                         {revealed ? webhook.secret : '•'.repeat(Math.min(40, (webhook.secret || '').length))}
@@ -106,17 +105,15 @@ export function WebhookTab({ deploymentUuid }: { deploymentUuid: string }) {
                         <i className={cn('fa-solid', revealed ? 'fa-eye-slash' : 'fa-eye')} />
                     </Button>
                 </div>
-            </div>
+            </Field>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                    <span className="text-muted-foreground">Branch</span>
-                    <p className="font-mono">{webhook.branch}</p>
-                </div>
-                <div>
-                    <span className="text-muted-foreground">Events</span>
-                    <p className="font-mono">{Array.isArray(webhook.events) ? webhook.events.join(', ') : 'push'}</p>
-                </div>
+            <div className="grid grid-cols-2 gap-4">
+                <Field label="Branch">
+                    <p className="font-mono text-xs">{webhook.branch}</p>
+                </Field>
+                <Field label="Events">
+                    <p className="font-mono text-xs">{Array.isArray(webhook.events) ? webhook.events.join(', ') : 'push'}</p>
+                </Field>
             </div>
 
             <button onClick={() => setShowHelp(h => !h)} className="text-xs text-muted-foreground transition-colors hover:text-foreground">
@@ -135,7 +132,7 @@ export function WebhookTab({ deploymentUuid }: { deploymentUuid: string }) {
 
             <div className="pt-1">
                 <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={handleDelete} pending={busy} pendingText="Deleting…">
-                    <i className="fa-solid fa-trash mr-2" />Delete webhook
+                    <i className="fa-solid fa-trash" /> Delete webhook
                 </Button>
             </div>
         </div>

@@ -1,17 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { StatRowSkeleton, TableRowsSkeleton } from '@/components/ui/skeleton'
+import { StatRowSkeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/EmptyState'
 import { PageShell } from '@/components/PageShell'
+import { Section } from '@/components/ui/section'
+import { DataTable, type Column } from '@/components/ui/data-table'
+import { StatusChip } from '@/components/StatusChip'
 import { AnimatedNumber } from '@/components/AnimatedNumber'
-import { staggerContainer, listItem } from '@/lib/motion'
 import { getAllSchedules, toggleSchedule, forceRunSchedule } from '@/app/actions/databases'
 
 type Schedule = {
@@ -107,8 +107,91 @@ export default function SchedulesTab() {
     const activeCount  = schedules.filter(s => s.enabled).length
     const backupActive = schedules.filter(s => s.task_type === 'db_backup' && s.enabled).length
 
+    const columns: Column<Schedule>[] = [
+        {
+            key: 'database',
+            header: 'Database',
+            render: (s) => (
+                <span className="block max-w-[150px] truncate font-mono text-xs text-foreground">{s.database_name}</span>
+            ),
+        },
+        {
+            key: 'phase',
+            header: 'Phase',
+            render: (s) => <span className="text-xs">{PHASE_LABELS[s.phase] ?? s.phase}</span>,
+        },
+        {
+            key: 'type',
+            header: 'Type',
+            render: (s) => (
+                <Badge variant="secondary" className="text-[10px] font-normal">
+                    {s.task_type === 'db_backup' ? 'Backup' : 'Validity'}
+                </Badge>
+            ),
+        },
+        {
+            key: 'interval',
+            header: 'Interval',
+            render: (s) => (
+                <span className="font-mono text-xs tabular-nums">{formatInterval(s.interval_seconds)}</span>
+            ),
+        },
+        {
+            key: 'next',
+            header: 'Next run',
+            render: (s) => (
+                <span className="whitespace-nowrap text-xs text-muted-foreground">{formatDate(s.next_run_at)}</span>
+            ),
+        },
+        {
+            key: 'state',
+            header: 'State',
+            render: (s) => (
+                <StatusChip label={s.enabled ? 'Enabled' : 'Disabled'} state={s.enabled ? 'ok' : 'unknown'} />
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            align: 'right',
+            render: (s) => (
+                <div className="flex justify-end gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!!busyKey}
+                        pending={busyKey === `run-${s.schedule_uuid}`}
+                        pendingText="Run"
+                        onClick={() => handleRun(s)}
+                    >
+                        <i className="fa-solid fa-play" /> Run
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        tone={s.enabled ? 'active' : 'inactive'}
+                        disabled={!!busyKey}
+                        pending={busyKey === `toggle-${s.schedule_uuid}`}
+                        pendingText={s.enabled ? 'Disable' : 'Enable'}
+                        onClick={() => handleToggle(s)}
+                    >
+                        {s.enabled ? 'Disable' : 'Enable'}
+                    </Button>
+                </div>
+            ),
+        },
+    ]
+
     return (
-        <PageShell title="Schedules" description="Manage automated backup and validity schedules.">
+        <PageShell
+            title="Schedules"
+            description="Manage automated backup and validity schedules."
+            actions={
+                <Button variant="outline" size="sm" onClick={load} pending={loading} pendingText="Refreshing…">
+                    <i className="fa-solid fa-rotate" /> Refresh
+                </Button>
+            }
+        >
             {error && (
                 <Alert variant="destructive">
                     <AlertDescription>{error}</AlertDescription>
@@ -123,125 +206,51 @@ export default function SchedulesTab() {
             {loading && schedules.length === 0 ? (
                 <StatRowSkeleton count={3} />
             ) : (
-                <div className="grid grid-cols-3 gap-4">
-                    <div className="rounded-sm border border-border bg-card p-4">
-                        <p className="text-xs text-muted-foreground">Total Schedules</p>
-                        <AnimatedNumber value={schedules.length} className="text-2xl font-semibold mt-1 block" />
-                    </div>
-                    <div className="rounded-sm border border-border bg-card p-4">
-                        <p className="text-xs text-muted-foreground">Active</p>
-                        <AnimatedNumber value={activeCount} className="text-2xl font-semibold mt-1 block" />
-                    </div>
-                    <div className="rounded-sm border border-border bg-card p-4">
-                        <p className="text-xs text-muted-foreground">Active Backup Schedules</p>
-                        <AnimatedNumber value={backupActive} className="text-2xl font-semibold mt-1 block" />
-                    </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <Section bodyClassName="p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Total schedules</p>
+                        <AnimatedNumber value={schedules.length} className="mt-2 block text-2xl font-semibold" />
+                    </Section>
+                    <Section bodyClassName="p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Active</p>
+                        <AnimatedNumber value={activeCount} className="mt-2 block text-2xl font-semibold" />
+                    </Section>
+                    <Section bodyClassName="p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Active backup schedules</p>
+                        <AnimatedNumber value={backupActive} className="mt-2 block text-2xl font-semibold" />
+                    </Section>
                 </div>
             )}
 
-            <div className="flex items-center justify-between gap-3">
-                <Input
-                    value={filter}
-                    onChange={e => setFilter(e.target.value)}
-                    placeholder="Filter by database name..."
-                    className="max-w-sm text-sm"
-                />
-                <Button variant="outline" size="sm" onClick={load} pending={loading} pendingText="Refresh">
-                    <i className="fa-solid fa-rotate-right mr-2" />
-                    Refresh
-                </Button>
-            </div>
-
-            <div className="overflow-hidden rounded-sm border border-border bg-card">
-                {loading && filtered.length === 0 ? (
-                    <TableRowsSkeleton rows={6} cols={7} />
-                ) : filtered.length === 0 ? (
-                    <EmptyState
-                        icon="fa-solid fa-clock-rotate-left"
-                        title="No schedules found"
-                        hint={filter.trim() ? 'No schedules match your filter.' : 'Schedules are created automatically when databases are provisioned.'}
-                        className="border-0"
+            <Section
+                title="Schedules"
+                description="Automated jobs that run against your databases"
+                icon="fa-solid fa-clock-rotate-left"
+                flush
+                actions={
+                    <Input
+                        value={filter}
+                        onChange={e => setFilter(e.target.value)}
+                        placeholder="Filter by database…"
+                        className="h-8 w-44 sm:w-64"
                     />
-                ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Database</TableHead>
-                                <TableHead>Phase</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead>Interval</TableHead>
-                                <TableHead>Next Run</TableHead>
-                                <TableHead className="w-16 text-center">Active</TableHead>
-                                <TableHead className="text-right pr-4">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <motion.tbody
-                            className="[&_tr:last-child]:border-0"
-                            variants={staggerContainer}
-                            initial="hidden"
-                            animate="show"
-                        >
-                            <AnimatePresence initial={false}>
-                                {filtered.map(s => (
-                                    <motion.tr
-                                        key={s.schedule_uuid}
-                                        layout
-                                        variants={listItem}
-                                        exit="exit"
-                                        className="border-b border-border transition-colors hover:bg-secondary/50"
-                                    >
-                                        <TableCell className="font-mono text-xs py-2.5 max-w-[130px] truncate">
-                                            {s.database_name}
-                                        </TableCell>
-                                        <TableCell className="text-xs py-2.5">
-                                            {PHASE_LABELS[s.phase] ?? s.phase}
-                                        </TableCell>
-                                        <TableCell className="py-2.5">
-                                            <Badge variant="secondary" className="text-xs font-normal">
-                                                {s.task_type === 'db_backup' ? 'Backup' : 'Validity'}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-xs py-2.5 tabular-nums font-mono">
-                                            {formatInterval(s.interval_seconds)}
-                                        </TableCell>
-                                        <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
-                                            {formatDate(s.next_run_at)}
-                                        </TableCell>
-                                        <TableCell className="py-2.5 text-center">
-                                            <span className={`inline-block w-2 h-2 rounded-full ${s.enabled ? 'bg-green-500' : 'bg-border'}`} />
-                                        </TableCell>
-                                        <TableCell className="text-right pr-4 py-2.5">
-                                            <div className="flex justify-end gap-1">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    disabled={!!busyKey}
-                                                    pending={busyKey === `run-${s.schedule_uuid}`}
-                                                    pendingText="Run"
-                                                    onClick={() => handleRun(s)}
-                                                >
-                                                    Run
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    tone={s.enabled ? 'active' : 'inactive'}
-                                                    disabled={!!busyKey}
-                                                    pending={busyKey === `toggle-${s.schedule_uuid}`}
-                                                    pendingText={s.enabled ? 'Disable' : 'Enable'}
-                                                    onClick={() => handleToggle(s)}
-                                                >
-                                                    {s.enabled ? 'Disable' : 'Enable'}
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </motion.tr>
-                                ))}
-                            </AnimatePresence>
-                        </motion.tbody>
-                    </Table>
-                )}
-            </div>
+                }
+            >
+                <DataTable
+                    columns={columns}
+                    rows={filtered}
+                    getRowId={(s) => s.schedule_uuid}
+                    loading={loading}
+                    skeletonRows={6}
+                    empty={
+                        <EmptyState
+                            icon="fa-solid fa-clock-rotate-left"
+                            title={filter.trim() ? 'No matching schedules' : 'No schedules found'}
+                            hint={filter.trim() ? 'No schedules match your filter.' : 'Schedules are created automatically when databases are provisioned.'}
+                        />
+                    }
+                />
+            </Section>
         </PageShell>
     )
 }

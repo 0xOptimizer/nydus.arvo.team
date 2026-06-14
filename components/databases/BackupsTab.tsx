@@ -1,16 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import Link from 'next/link'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { StatRowSkeleton, TableRowsSkeleton } from '@/components/ui/skeleton'
+import { StatRowSkeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/EmptyState'
 import { PageShell } from '@/components/PageShell'
+import { Section } from '@/components/ui/section'
+import { DataTable, type Column } from '@/components/ui/data-table'
+import { StatusBadge } from '@/components/StatusBadge'
 import { AnimatedNumber } from '@/components/AnimatedNumber'
-import { staggerContainer, listItem } from '@/lib/motion'
 import { getAllRecentBackups } from '@/app/actions/databases'
 
 type Backup = {
@@ -35,13 +36,6 @@ function formatDate(iso: string): string {
         month: 'short', day: 'numeric', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
     })
-}
-
-const STATUS_STYLES: Record<string, string> = {
-    completed: 'bg-green-500/10 text-green-600 border border-green-500/20',
-    failed:    'bg-red-500/10 text-red-600 border border-red-500/20',
-    running:   'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20',
-    pending:   'bg-muted text-muted-foreground border border-border',
 }
 
 export default function BackupsTab() {
@@ -72,8 +66,69 @@ export default function BackupsTab() {
     const failed     = backups.filter(b => b.status === 'failed')
     const totalBytes = completed.reduce((acc, b) => acc + (b.file_size_bytes || 0), 0)
 
+    const columns: Column<Backup>[] = [
+        {
+            key: 'database',
+            header: 'Database',
+            render: (bk) => (
+                <span className="block max-w-[140px] truncate font-mono text-xs text-foreground">{bk.database_name}</span>
+            ),
+        },
+        {
+            key: 'file',
+            header: 'File',
+            render: (bk) => (
+                <span className="block max-w-[200px] truncate font-mono text-xs text-muted-foreground">{bk.file_name}</span>
+            ),
+        },
+        {
+            key: 'size',
+            header: 'Size',
+            render: (bk) => (
+                <span className="font-mono text-xs tabular-nums">{formatBytes(bk.file_size_bytes)}</span>
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            render: (bk) => <StatusBadge status={bk.status} />,
+        },
+        {
+            key: 'created',
+            header: 'Created',
+            render: (bk) => (
+                <span className="whitespace-nowrap text-xs text-muted-foreground">{formatDate(bk.created_at)}</span>
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            align: 'right',
+            render: (bk) => (
+                bk.status === 'completed' ? (
+                    <Button
+                        ripple
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`/api/backup/${bk.backup_uuid}`, '_blank')}
+                    >
+                        <i className="fa-solid fa-download" /> Download
+                    </Button>
+                ) : <span className="text-xs text-muted-foreground/50">—</span>
+            ),
+        },
+    ]
+
     return (
-        <PageShell title="Backups" description="Browse and download recent database backups.">
+        <PageShell
+            title="Backups"
+            description="Browse and download recent database backups."
+            actions={
+                <Button variant="outline" size="sm" onClick={load} pending={loading} pendingText="Refreshing…">
+                    <i className="fa-solid fa-rotate" /> Refresh
+                </Button>
+            }
+        >
             {error && (
                 <Alert variant="destructive">
                     <AlertDescription>{error}</AlertDescription>
@@ -83,113 +138,62 @@ export default function BackupsTab() {
             {loading && backups.length === 0 ? (
                 <StatRowSkeleton count={3} />
             ) : (
-                <div className="grid grid-cols-3 gap-4">
-                    <div className="rounded-sm border border-border bg-card p-4">
-                        <p className="text-xs text-muted-foreground">Total Backups</p>
-                        <AnimatedNumber value={backups.length} className="text-2xl font-semibold mt-1 block" />
-                    </div>
-                    <div className="rounded-sm border border-border bg-card p-4">
-                        <p className="text-xs text-muted-foreground">Success / Failed</p>
-                        <p className="text-2xl font-semibold tabular-nums font-mono mt-1">
-                            {completed.length}
-                            <span className="text-muted-foreground font-normal text-base"> / </span>
-                            {failed.length}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <Section bodyClassName="p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Total backups</p>
+                        <AnimatedNumber value={backups.length} className="mt-2 block text-2xl font-semibold" />
+                    </Section>
+                    <Section bodyClassName="p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Success / Failed</p>
+                        <p className="mt-2 font-mono text-2xl font-semibold tabular-nums">
+                            <span className="text-green-500">{completed.length}</span>
+                            <span className="text-base font-normal text-muted-foreground"> / </span>
+                            <span className="text-red-500">{failed.length}</span>
                         </p>
-                    </div>
-                    <div className="rounded-sm border border-border bg-card p-4">
-                        <p className="text-xs text-muted-foreground">Total Size</p>
-                        <AnimatedNumber value={totalBytes} format={formatBytes} className="text-2xl font-semibold mt-1 block" />
-                    </div>
+                    </Section>
+                    <Section bodyClassName="p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Total size</p>
+                        <AnimatedNumber value={totalBytes} format={formatBytes} className="mt-2 block text-2xl font-semibold" />
+                    </Section>
                 </div>
             )}
 
-            <div className="flex items-center justify-between gap-3">
-                <Input
-                    value={filter}
-                    onChange={e => setFilter(e.target.value)}
-                    placeholder="Filter by database name..."
-                    className="max-w-sm text-sm"
-                />
-                <Button variant="outline" size="sm" onClick={load} pending={loading} pendingText="Refresh">
-                    <i className="fa-solid fa-rotate-right mr-2" />
-                    Refresh
-                </Button>
-            </div>
-
-            <div className="overflow-hidden rounded-sm border border-border bg-card">
-                {loading && filtered.length === 0 ? (
-                    <TableRowsSkeleton rows={6} cols={6} />
-                ) : filtered.length === 0 ? (
-                    <EmptyState
-                        icon="fa-solid fa-clone"
-                        title="No backups found"
-                        hint={filter.trim() ? 'No backups match your filter.' : 'Create a backup from the Databases page to see it here.'}
-                        className="border-0"
+            <Section
+                title="Recent backups"
+                description="Most recent backups across your databases"
+                icon="fa-solid fa-clone"
+                flush
+                actions={
+                    <Input
+                        value={filter}
+                        onChange={e => setFilter(e.target.value)}
+                        placeholder="Filter by database…"
+                        className="h-8 w-44 sm:w-64"
                     />
-                ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Database</TableHead>
-                                <TableHead>File</TableHead>
-                                <TableHead>Size</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Created</TableHead>
-                                <TableHead className="text-right pr-4">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <motion.tbody
-                            className="[&_tr:last-child]:border-0"
-                            variants={staggerContainer}
-                            initial="hidden"
-                            animate="show"
-                        >
-                            <AnimatePresence initial={false}>
-                                {filtered.map(bk => (
-                                    <motion.tr
-                                        key={bk.backup_uuid}
-                                        layout
-                                        variants={listItem}
-                                        exit="exit"
-                                        className="border-b border-border transition-colors hover:bg-secondary/50"
-                                    >
-                                        <TableCell className="font-mono text-xs py-2.5 max-w-[120px] truncate">
-                                            {bk.database_name}
-                                        </TableCell>
-                                        <TableCell className="font-mono text-xs py-2.5 max-w-[180px] truncate text-muted-foreground">
-                                            {bk.file_name}
-                                        </TableCell>
-                                        <TableCell className="text-xs py-2.5 tabular-nums font-mono">
-                                            {formatBytes(bk.file_size_bytes)}
-                                        </TableCell>
-                                        <TableCell className="py-2.5">
-                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[bk.status] ?? STATUS_STYLES.pending}`}>
-                                                {bk.status}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="text-xs text-muted-foreground py-2.5 whitespace-nowrap">
-                                            {formatDate(bk.created_at)}
-                                        </TableCell>
-                                        <TableCell className="text-right pr-4 py-2.5">
-                                            {bk.status === 'completed' && (
-                                                <Button
-                                                    ripple
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => window.open(`/api/backup/${bk.backup_uuid}`, '_blank')}
-                                                >
-                                                    <i className="fa-solid fa-download mr-1.5" />
-                                                    Download
-                                                </Button>
-                                            )}
-                                        </TableCell>
-                                    </motion.tr>
-                                ))}
-                            </AnimatePresence>
-                        </motion.tbody>
-                    </Table>
-                )}
-            </div>
+                }
+            >
+                <DataTable
+                    columns={columns}
+                    rows={filtered}
+                    getRowId={(bk) => bk.backup_uuid}
+                    loading={loading}
+                    skeletonRows={6}
+                    empty={
+                        <EmptyState
+                            icon="fa-solid fa-clone"
+                            title={filter.trim() ? 'No matching backups' : 'No backups yet'}
+                            hint={filter.trim() ? 'No backups match your filter.' : 'Create a backup from the Databases page to see it here.'}
+                            action={
+                                !filter.trim() ? (
+                                    <Button asChild variant="outline" size="sm">
+                                        <Link href="/databases">Go to Databases</Link>
+                                    </Button>
+                                ) : undefined
+                            }
+                        />
+                    }
+                />
+            </Section>
         </PageShell>
     )
 }

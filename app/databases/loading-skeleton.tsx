@@ -1,25 +1,21 @@
-import { Skeleton, TableRowsSkeleton } from '@/components/ui/skeleton'
+import { Skeleton, CardSkeleton } from '@/components/ui/skeleton'
 
 export default function DatabasesSkeleton() {
     return (
-        <div className="flex flex-col gap-6 w-full">
-            <div className="flex items-center justify-between">
-                <Skeleton className="h-7 w-48 bg-muted/40" />
-                <div className="flex gap-2">
-                    <Skeleton className="h-8 w-24 rounded-full bg-muted/40" />
-                    <Skeleton className="h-8 w-24 rounded-full bg-muted/30" />
+        <div className="w-full">
+            {/* PageShell header */}
+            <div className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
+                <div className="space-y-2">
+                    <Skeleton className="h-8 w-56 bg-muted/40" />
+                    <Skeleton className="h-4 w-72 bg-muted/25" />
                 </div>
+                <Skeleton className="h-8 w-28 rounded-full bg-muted/30" />
             </div>
 
-            <div className="flex gap-3">
-                {[80, 110, 90].map((w, i) => (
-                    <Skeleton key={i} className="h-7 rounded-full bg-muted/30" style={{ width: w }} />
-                ))}
-            </div>
-
-            <div className="overflow-hidden rounded-sm border border-border bg-card">
-                <div className="h-10 animate-pulse border-b border-border bg-muted/30" />
-                <TableRowsSkeleton rows={7} cols={5} />
+            {/* Section bodies */}
+            <div className="space-y-6 pt-6">
+                <CardSkeleton rows={3} />
+                <CardSkeleton rows={6} />
             </div>
         </div>
     )
