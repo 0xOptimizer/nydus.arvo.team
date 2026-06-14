@@ -45,6 +45,7 @@ function UsageMiniStats() {
     i_p: 0, i_u: 0, i_t: 0,
     avgCpu: 0, avgRam: 0
   })
+  const [loaded, setLoaded] = useState(false)
 
   const formatGB = (bytes: number) => (bytes / (1024 ** 3)).toFixed(1)
   const formatInodes = (num: number) => num > 1000 ? (num / 1000).toFixed(1) + 'k' : num
@@ -68,12 +69,29 @@ function UsageMiniStats() {
           avgRam: data.avg_ram || 0
         })
       }
+      setLoaded(true)
     }
 
     fetchStats()
     const interval = setInterval(fetchStats, 10000)
     return () => clearInterval(interval)
   }, [])
+
+  if (!loaded) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="h-2.5 w-10 animate-pulse rounded bg-muted/40" />
+              <div className="h-2.5 w-8 animate-pulse rounded bg-muted/30" />
+            </div>
+            <div className="h-1 w-full animate-pulse rounded-full bg-muted/30" />
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3">
@@ -140,10 +158,15 @@ export default function DashboardSidebar() {
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
 
+    // Restore the nav scroll position so it survives full page loads / remounts.
+    const saved = sessionStorage.getItem('nydus:sidebar-scroll');
+    if (saved) scrollContainer.scrollTop = parseInt(saved, 10) || 0;
+
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
       setShowTopFade(scrollTop > 5);
       setShowBottomFade(scrollTop + clientHeight < scrollHeight - 5);
+      sessionStorage.setItem('nydus:sidebar-scroll', String(scrollTop));
     };
 
     handleScroll(); // check initial state

@@ -38,7 +38,7 @@ export default async function TopBar() {
                         </span>
                         <span className="text-muted-foreground text-xs lowercase font-medium">.arvo.team</span>
                     </div>
-                    <div className="ml-28 flex items-center h-full">
+                    <div className="ml-8 flex h-full min-w-0 items-center 2xl:ml-28">
                         <DynamicNavTabs />
                     </div>
                 </div>

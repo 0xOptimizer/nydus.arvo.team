@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/EmptyState'
 import { PageShell } from '@/components/PageShell'
+import { AccessTabs } from '@/components/databases/AccessTabs'
 import { Section } from '@/components/ui/section'
 import { Field } from '@/components/ui/field'
 import { staggerContainer, staggerItem, listItem } from '@/lib/motion'
@@ -128,6 +129,8 @@ export default function AssignmentsTab() {
                 </Badge>
             }
         >
+            <AccessTabs active="assignments" />
+
             {error && (
                 <Alert variant="destructive">
                     <AlertDescription>{error}</AlertDescription>

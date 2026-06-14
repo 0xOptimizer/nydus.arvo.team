@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { AnimatePresence, motion } from 'motion/react';
 import { useDeploymentContext } from '@/app/deployments/context/DeploymentContext';
 import { useStreamDock } from '@/context/StreamDockContext';
 import {
@@ -23,6 +24,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button }                 from '@/components/ui/button';
 import { SegmentedControl }       from '@/components/ui/segmented';
 import { EmptyState }             from '@/components/EmptyState';
+import { Skeleton }               from '@/components/ui/skeleton';
+import { staggerContainer, staggerItem, listItem } from '@/lib/motion';
 import {
     Dialog, DialogContent, DialogHeader,
     DialogTitle, DialogDescription, DialogFooter,
@@ -254,112 +257,7 @@ export default function DeployTab() {
         { label: 'Pending',   value: deployments.filter(d => d.status === 'pending').length,   color: 'text-yellow-500' },
     ];
 
-    // --- Table columns ---
-    const projectColumns: Column<any>[] = [
-        {
-            key: 'project',
-            header: 'Project',
-            render: (p) => (
-                <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-foreground">{p.name}</div>
-                    <div className="truncate text-[10px] text-muted-foreground">
-                        {p.owner_login}{p.default_branch ? ` • ${p.default_branch}` : ''}
-                    </div>
-                </div>
-            ),
-        },
-        {
-            key: 'action',
-            header: 'Action',
-            align: 'right',
-            render: (p) => (
-                <Button ripple size="sm" onClick={() => openDeployDialog(p)}>
-                    <i className="fa-solid fa-rocket" /> Deploy
-                </Button>
-            ),
-        },
-    ];
-
-    const deploymentColumns: Column<any>[] = [
-        {
-            key: 'subdomain',
-            header: 'Domain',
-            render: (d) => (
-                <a
-                    href={`https://${deploymentFqdn(d)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 font-mono text-sm text-foreground hover:underline"
-                >
-                    {deploymentFqdn(d)}
-                    <i className="fa-solid fa-arrow-up-right-from-square text-[10px] text-muted-foreground" />
-                </a>
-            ),
-        },
-        {
-            key: 'stack',
-            header: 'Stack',
-            render: (d) => (
-                <div className="flex items-center gap-1.5">
-                    <Badge variant="secondary" className="text-[10px] font-normal uppercase">
-                        {d.tech_stack}
-                    </Badge>
-                    {d.dns_mode && d.dns_mode !== 'subdomain' && (
-                        <Badge variant="outline" className="text-[10px] font-normal uppercase">
-                            {dnsModeLabel(d.dns_mode)}
-                        </Badge>
-                    )}
-                </div>
-            ),
-        },
-        {
-            key: 'port',
-            header: 'Port',
-            render: (d) => (
-                <span className="font-mono text-xs text-muted-foreground">{d.assigned_port ?? '—'}</span>
-            ),
-        },
-        {
-            key: 'status',
-            header: 'Status',
-            render: (d) => <AnimatedStatusBadge status={d.status} />,
-        },
-        {
-            key: 'deployed',
-            header: 'Deployed',
-            render: (d) => (
-                <span className="whitespace-nowrap text-xs text-muted-foreground">{formatDateTime(d.deployed_at)}</span>
-            ),
-        },
-        {
-            key: 'actions',
-            header: 'Actions',
-            align: 'right',
-            render: (d) => (
-                <div className="flex justify-end gap-2">
-                    <Button asChild variant="ghost" size="sm">
-                        <Link href={`/deployments/${d.deployment_uuid}`}>
-                            <i className="fa-solid fa-sliders" /> Manage
-                        </Link>
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => openEnvDialog(d)}>
-                        <i className="fa-solid fa-file-code" /> Env
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openRebuildDialog(d)}
-                        disabled={d.status === 'pending'}
-                        pending={busyKey === `rebuild-${d.deployment_uuid}`}
-                        pendingText="Rebuilding…"
-                    >
-                        <i className="fa-solid fa-rotate" /> Rebuild
-                    </Button>
-                </div>
-            ),
-        },
-    ];
-
+    // --- Env dialog table columns ---
     const envColumns: Column<{ key: string; value: string }>[] = [
         {
             key: 'key',
@@ -466,29 +364,62 @@ export default function DeployTab() {
                 title="Deploy a project"
                 description="Pick an attached repository to launch a new deployment"
                 icon="fa-solid fa-folder"
-                flush
             >
-                <DataTable
-                    columns={projectColumns}
-                    rows={projects}
-                    getRowId={(p) => p.project_uuid}
-                    loading={loading}
-                    skeletonRows={3}
-                    empty={
-                        <EmptyState
-                            icon="fa-solid fa-folder-open"
-                            title="No attached projects"
-                            hint="Attach a GitHub repository on the Projects page to deploy it here."
-                            action={
-                                <Button asChild variant="outline" size="sm">
-                                    <Link href="/projects">
-                                        <i className="fa-solid fa-arrow-right" /> Go to Projects
-                                    </Link>
+                {loading && projects.length === 0 ? (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                            <div
+                                key={i}
+                                className="flex items-center justify-between rounded-sm border border-border bg-background/40 p-3"
+                                style={{ opacity: 1 - i * 0.15 }}
+                            >
+                                <div className="space-y-1.5">
+                                    <Skeleton className="h-3.5 w-28" />
+                                    <Skeleton className="h-2.5 w-20 bg-muted/30" />
+                                </div>
+                                <Skeleton className="h-8 w-20 rounded-full" />
+                            </div>
+                        ))}
+                    </div>
+                ) : projects.length === 0 ? (
+                    <EmptyState
+                        icon="fa-solid fa-folder-open"
+                        title="No attached projects"
+                        hint="Attach a GitHub repository on the Projects page to deploy it here."
+                        action={
+                            <Button asChild variant="outline" size="sm">
+                                <Link href="/projects">
+                                    <i className="fa-solid fa-arrow-right" /> Go to Projects
+                                </Link>
+                            </Button>
+                        }
+                    />
+                ) : (
+                    <motion.div
+                        variants={staggerContainer}
+                        initial="hidden"
+                        animate="show"
+                        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+                    >
+                        {projects.map((p) => (
+                            <motion.div
+                                key={p.project_uuid}
+                                variants={staggerItem}
+                                className="flex items-center justify-between gap-2 rounded-sm border border-border bg-background/40 p-3 transition-colors hover:border-primary/40"
+                            >
+                                <div className="min-w-0">
+                                    <div className="truncate text-sm font-medium text-foreground">{p.name}</div>
+                                    <div className="truncate text-[10px] text-muted-foreground">
+                                        {p.owner_login}{p.default_branch ? ` • ${p.default_branch}` : ''}
+                                    </div>
+                                </div>
+                                <Button ripple size="sm" onClick={() => openDeployDialog(p)} className="shrink-0">
+                                    <i className="fa-solid fa-rocket" /> Deploy
                                 </Button>
-                            }
-                        />
-                    }
-                />
+                            </motion.div>
+                        ))}
+                    </motion.div>
+                )}
             </Section>
 
             {/* Deployments */}
@@ -496,21 +427,105 @@ export default function DeployTab() {
                 title="Deployments"
                 description="Live deployments and their runtime status"
                 icon="fa-solid fa-rocket"
-                flush
             >
-                <DataTable
-                    columns={deploymentColumns}
-                    rows={deployments}
-                    getRowId={(d) => d.deployment_uuid}
-                    loading={loading}
-                    empty={
-                        <EmptyState
-                            icon="fa-solid fa-rocket"
-                            title="No deployments yet"
-                            hint="Deploy an attached project above to see it listed here."
-                        />
-                    }
-                />
+                {loading && deployments.length === 0 ? (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                            <div
+                                key={i}
+                                className="rounded-sm border border-border bg-background/40 p-4"
+                                style={{ opacity: 1 - i * 0.15 }}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <Skeleton className="h-4 w-32" />
+                                    <Skeleton className="h-5 w-16 rounded-full bg-muted/30" />
+                                </div>
+                                <Skeleton className="mt-3 h-3 w-24 bg-muted/30" />
+                                <Skeleton className="mt-4 h-8 w-full bg-muted/20" />
+                            </div>
+                        ))}
+                    </div>
+                ) : deployments.length === 0 ? (
+                    <EmptyState
+                        icon="fa-solid fa-rocket"
+                        title="No deployments yet"
+                        hint="Deploy an attached project above to see it listed here."
+                    />
+                ) : (
+                    <motion.div
+                        variants={staggerContainer}
+                        initial="hidden"
+                        animate="show"
+                        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+                    >
+                        <AnimatePresence initial={false}>
+                            {deployments.map((d) => {
+                                const fqdn = deploymentFqdn(d);
+                                return (
+                                    <motion.div
+                                        key={d.deployment_uuid}
+                                        variants={listItem}
+                                        exit="exit"
+                                        layout
+                                        className="flex flex-col rounded-sm border border-border bg-background/40 p-4 transition-colors hover:border-primary/40"
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <a
+                                                href={`https://${fqdn}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex min-w-0 items-center gap-1.5 font-mono text-sm text-foreground hover:underline"
+                                            >
+                                                <span className="truncate">{fqdn}</span>
+                                                <i className="fa-solid fa-arrow-up-right-from-square shrink-0 text-[10px] text-muted-foreground" />
+                                            </a>
+                                            <AnimatedStatusBadge status={d.status} />
+                                        </div>
+
+                                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                            <Badge variant="secondary" className="text-[10px] font-normal uppercase">{d.tech_stack}</Badge>
+                                            {d.dns_mode && d.dns_mode !== 'subdomain' && (
+                                                <Badge variant="outline" className="text-[10px] font-normal uppercase">{dnsModeLabel(d.dns_mode)}</Badge>
+                                            )}
+                                        </div>
+
+                                        <div className="mt-3 grid grid-cols-2 gap-3">
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Port</p>
+                                                <p className="font-mono text-xs text-foreground">{d.assigned_port ?? '—'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Deployed</p>
+                                                <p className="font-mono text-xs text-foreground">{formatDateTime(d.deployed_at)}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
+                                            <Button asChild variant="ghost" size="sm" className="flex-1">
+                                                <Link href={`/deployments/${d.deployment_uuid}`}>
+                                                    <i className="fa-solid fa-sliders" /> Manage
+                                                </Link>
+                                            </Button>
+                                            <Button variant="outline" size="sm" onClick={() => openEnvDialog(d)} aria-label="Environment variables">
+                                                <i className="fa-solid fa-file-code" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => openRebuildDialog(d)}
+                                                disabled={d.status === 'pending'}
+                                                pending={busyKey === `rebuild-${d.deployment_uuid}`}
+                                                aria-label="Rebuild"
+                                            >
+                                                <i className="fa-solid fa-rotate" />
+                                            </Button>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
+                        </AnimatePresence>
+                    </motion.div>
+                )}
             </Section>
 
             {/* Deploy dialog (form only — logs stream in the bottom dock) */}

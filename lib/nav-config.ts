@@ -16,7 +16,6 @@ export const NAV_CONFIG: NavSection[] = [
             { label: 'Databases', href: '/databases', icon: 'fa-database' },
             { label: 'Backups', href: '/databases/backups', icon: 'fa-clone' },
             { label: 'Users', href: '/databases/users', icon: 'fa-users' },
-            // { label: 'Assign', href: '/databases/assignments', icon: 'fa-link' },
             { label: 'Schedules', href: '/databases/schedules', icon: 'fa-clock-rotate-left' },
         ],
     },

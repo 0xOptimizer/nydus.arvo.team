@@ -14,6 +14,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { EmptyState } from '@/components/EmptyState'
 import { PageShell } from '@/components/PageShell'
+import { AccessTabs } from '@/components/databases/AccessTabs'
 import { Section } from '@/components/ui/section'
 import { DataTable, type Column } from '@/components/ui/data-table'
 import { Field, FormGrid } from '@/components/ui/field'
@@ -173,6 +174,8 @@ export default function UsersTab() {
                 </Badge>
             }
         >
+            <AccessTabs active="users" />
+
             {error && (
                 <Alert variant="destructive">
                     <AlertDescription>{error}</AlertDescription>
