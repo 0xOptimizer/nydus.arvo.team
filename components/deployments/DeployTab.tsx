@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { useDeploymentContext } from '@/app/deployments/context/DeploymentContext';
 import { useStreamDock } from '@/context/StreamDockContext';
 import {
@@ -25,7 +25,7 @@ import { Button }                 from '@/components/ui/button';
 import { SegmentedControl }       from '@/components/ui/segmented';
 import { EmptyState }             from '@/components/EmptyState';
 import { Skeleton }               from '@/components/ui/skeleton';
-import { staggerContainer, staggerItem, listItem } from '@/lib/motion';
+import { staggerContainer, staggerItem } from '@/lib/motion';
 import {
     Dialog, DialogContent, DialogHeader,
     DialogTitle, DialogDescription, DialogFooter,
@@ -458,15 +458,12 @@ export default function DeployTab() {
                         animate="show"
                         className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
                     >
-                        <AnimatePresence initial={false}>
-                            {deployments.map((d) => {
-                                const fqdn = deploymentFqdn(d);
-                                return (
+                        {deployments.map((d) => {
+                            const fqdn = deploymentFqdn(d);
+                            return (
                                     <motion.div
                                         key={d.deployment_uuid}
-                                        variants={listItem}
-                                        exit="exit"
-                                        layout
+                                        variants={staggerItem}
                                         className="flex flex-col gap-2 rounded-sm border border-border bg-background/40 p-3 transition-colors hover:border-primary/40"
                                     >
                                         <div className="flex items-center justify-between gap-2">
@@ -516,7 +513,6 @@ export default function DeployTab() {
                                     </motion.div>
                                 );
                             })}
-                        </AnimatePresence>
                     </motion.div>
                 )}
             </Section>
