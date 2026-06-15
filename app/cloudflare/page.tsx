@@ -18,7 +18,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { PageShell } from '@/components/PageShell';
 import { Section } from '@/components/ui/section';
 import { DataTable, type Column } from '@/components/ui/data-table';
-import { Field, FormGrid } from '@/components/ui/field';
+import { Field } from '@/components/ui/field';
 
 export default function DNSPage() {
     // Data State
@@ -185,15 +185,17 @@ export default function DNSPage() {
             title="Cloudflare"
             description="Manage subdomains and bind them to internal deployments."
         >
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Section
                 title="New record"
-                description="Bind a project to a subdomain on arvo.team"
+                description="Bind a project to a subdomain"
                 icon="fa-solid fa-plus-circle"
+                className="lg:col-span-1"
             >
-                <FormGrid cols={2}>
+                <div className="space-y-4">
                     <Field
                         label="Project"
-                        hint="Picks a default subdomain from the repository name."
+                        hint="Picks a default subdomain from the repo name."
                     >
                         <Select value={selectedProject} onValueChange={handleProjectSelect}>
                             <SelectTrigger className="w-full">
@@ -227,11 +229,10 @@ export default function DNSPage() {
                             </span>
                         </div>
                     </Field>
-                </FormGrid>
 
-                <div className="mt-4 flex justify-end">
                     <Button
                         ripple
+                        className="w-full"
                         pending={creating}
                         pendingText="Binding…"
                         onClick={handleCreate}
@@ -247,6 +248,7 @@ export default function DNSPage() {
                 description="DNS records managed through Nydus"
                 icon="fa-solid fa-globe"
                 flush
+                className="lg:col-span-2"
                 actions={
                     <Input
                         type="text"
@@ -298,6 +300,7 @@ export default function DNSPage() {
                     }
                 />
             </Section>
+            </div>
         </PageShell>
     );
 }

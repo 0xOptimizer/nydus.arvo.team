@@ -184,7 +184,8 @@ export default function ProjectsPage() {
         </Section>
       )}
 
-      <Section title="Attached projects" description="Repositories connected to Nydus" icon="fa-solid fa-folder" flush>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <Section title="Attached projects" description="Repositories connected to Nydus" icon="fa-solid fa-folder" flush className="lg:col-span-1">
         <DataTable
           columns={attachedColumns}
           rows={attached}
@@ -205,6 +206,7 @@ export default function ProjectsPage() {
         description="Repositories you can attach"
         icon="fa-brands fa-github"
         flush
+        className="lg:col-span-2"
         actions={
           <Input
             placeholder="Search repositories…"
@@ -232,6 +234,7 @@ export default function ProjectsPage() {
           }
         />
       </Section>
+      </div>
     </PageShell>
   );
 }

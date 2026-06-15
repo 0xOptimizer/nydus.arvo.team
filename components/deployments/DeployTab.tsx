@@ -345,28 +345,27 @@ export default function DeployTab() {
                 </Alert>
             )}
 
-            <DeployInstructions />
+            {/* Overview strip — compact, no card chrome */}
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+                {summary.map(({ label, value, color }) => (
+                    <div key={label} className="rounded-sm border border-border bg-card p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
+                        <AnimatedNumber value={value} className={`mt-1 block text-xl font-bold ${color}`} />
+                    </div>
+                ))}
+            </div>
 
-            {/* Summary */}
-            <Section title="Overview" description="Status of your deployments at a glance" icon="fa-solid fa-chart-simple">
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                    {summary.map(({ label, value, color }) => (
-                        <div key={label} className="rounded-sm border border-border bg-background/40 p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</p>
-                            <AnimatedNumber value={value} className={`mt-1.5 block text-2xl font-bold ${color}`} />
-                        </div>
-                    ))}
-                </div>
-            </Section>
-
+            {/* Deploy panel (left) + deployments (right) — dashboard-style two columns */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {/* Deploy a project */}
             <Section
                 title="Deploy a project"
-                description="Pick an attached repository to launch a new deployment"
+                description="Launch a new deployment"
                 icon="fa-solid fa-folder"
+                className="lg:col-span-1"
             >
                 {loading && projects.length === 0 ? (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-2">
                         {Array.from({ length: 3 }).map((_, i) => (
                             <div
                                 key={i}
@@ -399,7 +398,7 @@ export default function DeployTab() {
                         variants={staggerContainer}
                         initial="hidden"
                         animate="show"
-                        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+                        className="space-y-2"
                     >
                         {projects.map((p) => (
                             <motion.div
@@ -427,9 +426,10 @@ export default function DeployTab() {
                 title="Deployments"
                 description="Live deployments and their runtime status"
                 icon="fa-solid fa-rocket"
+                className="lg:col-span-2"
             >
                 {loading && deployments.length === 0 ? (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
                         {Array.from({ length: 3 }).map((_, i) => (
                             <div
                                 key={i}
@@ -456,7 +456,7 @@ export default function DeployTab() {
                         variants={staggerContainer}
                         initial="hidden"
                         animate="show"
-                        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+                        className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3"
                     >
                         {deployments.map((d) => {
                             const fqdn = deploymentFqdn(d);
@@ -516,6 +516,9 @@ export default function DeployTab() {
                     </motion.div>
                 )}
             </Section>
+            </div>
+
+            <DeployInstructions />
 
             {/* Deploy dialog (form only — logs stream in the bottom dock) */}
             <Dialog

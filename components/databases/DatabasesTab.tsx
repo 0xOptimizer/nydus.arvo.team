@@ -427,13 +427,15 @@ export default function DatabasesTab() {
                 </Alert>
             )}
 
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Section
                 title="New database"
-                description="Provision a database. For credentials in one click, use Quick Generate."
+                description="Provision a new database."
                 icon="fa-solid fa-plus-circle"
+                className="lg:col-span-1"
             >
                 <div className="space-y-4">
-                    <FormGrid cols={2}>
+                    <FormGrid cols={1}>
                         <Field label="Engine" htmlFor="db-engine">
                             <Select value={newDbType} onValueChange={setNewDbType}>
                                 <SelectTrigger id="db-engine">
@@ -489,19 +491,41 @@ export default function DatabasesTab() {
                         </div>
                     </Field>
 
-                    <div className="flex justify-end">
-                        <Button
-                            ripple
-                            onClick={handleCreateDb}
-                            disabled={!newDbName || !isValidDbName(newDbName) || !actorId}
-                            pending={creating}
-                            pendingText="Creating…"
-                        >
-                            <i className="fa-solid fa-plus" /> Create database
-                        </Button>
-                    </div>
+                    <Button
+                        ripple
+                        className="w-full"
+                        onClick={handleCreateDb}
+                        disabled={!newDbName || !isValidDbName(newDbName) || !actorId}
+                        pending={creating}
+                        pendingText="Creating…"
+                    >
+                        <i className="fa-solid fa-plus" /> Create database
+                    </Button>
                 </div>
             </Section>
+
+            <Section
+                title="Databases"
+                description="Databases provisioned under your account"
+                icon="fa-solid fa-database"
+                flush
+                className="lg:col-span-2"
+            >
+                <DataTable
+                    columns={dbColumns}
+                    rows={sortByColumn(databases, dbSortCol, dbSortAsc)}
+                    getRowId={(db) => db.database_uuid}
+                    loading={loading}
+                    empty={
+                        <EmptyState
+                            icon="fa-solid fa-database"
+                            title="No databases provisioned yet"
+                            hint="Create a database above or use Quick Generate to get started."
+                        />
+                    }
+                />
+            </Section>
+            </div>
 
             {restoreDb && (
                 <Section
@@ -542,27 +566,6 @@ export default function DatabasesTab() {
                     </Field>
                 </Section>
             )}
-
-            <Section
-                title="Databases"
-                description="Databases provisioned under your account"
-                icon="fa-solid fa-database"
-                flush
-            >
-                <DataTable
-                    columns={dbColumns}
-                    rows={sortByColumn(databases, dbSortCol, dbSortAsc)}
-                    getRowId={(db) => db.database_uuid}
-                    loading={loading}
-                    empty={
-                        <EmptyState
-                            icon="fa-solid fa-database"
-                            title="No databases provisioned yet"
-                            hint="Create a database above or use Quick Generate to get started."
-                        />
-                    }
-                />
-            </Section>
 
             <Section
                 title="Recent backups"
