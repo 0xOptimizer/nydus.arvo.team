@@ -76,7 +76,7 @@ export function SegmentedControl<T extends string>(props: SegmentedControlProps<
                         disabled={isDisabled}
                         onClick={() => toggle(opt.value)}
                         className={cn(
-                            'relative rounded-full border font-medium uppercase tracking-wide transition-colors active:scale-95 disabled:pointer-events-none disabled:opacity-50',
+                            'relative cursor-pointer rounded-full border font-medium uppercase tracking-wide transition-colors active:scale-95 disabled:pointer-events-none disabled:opacity-50',
                             sizeCls,
                             selected
                                 ? 'border-primary text-primary'

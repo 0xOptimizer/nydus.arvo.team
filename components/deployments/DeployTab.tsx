@@ -429,7 +429,7 @@ export default function DeployTab() {
                 icon="fa-solid fa-rocket"
             >
                 {loading && deployments.length === 0 ? (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                         {Array.from({ length: 3 }).map((_, i) => (
                             <div
                                 key={i}
@@ -456,7 +456,7 @@ export default function DeployTab() {
                         variants={staggerContainer}
                         initial="hidden"
                         animate="show"
-                        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+                        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
                     >
                         <AnimatePresence initial={false}>
                             {deployments.map((d) => {
@@ -467,54 +467,47 @@ export default function DeployTab() {
                                         variants={listItem}
                                         exit="exit"
                                         layout
-                                        className="flex flex-col rounded-sm border border-border bg-background/40 p-4 transition-colors hover:border-primary/40"
+                                        className="flex flex-col gap-2 rounded-sm border border-border bg-background/40 p-3 transition-colors hover:border-primary/40"
                                     >
-                                        <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-center justify-between gap-2">
                                             <a
                                                 href={`https://${fqdn}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="inline-flex min-w-0 items-center gap-1.5 font-mono text-sm text-foreground hover:underline"
+                                                className="inline-flex min-w-0 items-center gap-1.5 font-mono text-xs text-foreground hover:underline"
                                             >
                                                 <span className="truncate">{fqdn}</span>
-                                                <i className="fa-solid fa-arrow-up-right-from-square shrink-0 text-[10px] text-muted-foreground" />
+                                                <i className="fa-solid fa-arrow-up-right-from-square shrink-0 text-[9px] text-muted-foreground" />
                                             </a>
                                             <AnimatedStatusBadge status={d.status} />
                                         </div>
 
-                                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
                                             <Badge variant="secondary" className="text-[10px] font-normal uppercase">{d.tech_stack}</Badge>
                                             {d.dns_mode && d.dns_mode !== 'subdomain' && (
                                                 <Badge variant="outline" className="text-[10px] font-normal uppercase">{dnsModeLabel(d.dns_mode)}</Badge>
                                             )}
+                                            <span className="font-mono">:{d.assigned_port ?? '—'}</span>
+                                            <span className="ml-auto truncate font-mono">{formatDateTime(d.deployed_at)}</span>
                                         </div>
 
-                                        <div className="mt-3 grid grid-cols-2 gap-3">
-                                            <div>
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Port</p>
-                                                <p className="font-mono text-xs text-foreground">{d.assigned_port ?? '—'}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Deployed</p>
-                                                <p className="font-mono text-xs text-foreground">{formatDateTime(d.deployed_at)}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
-                                            <Button asChild variant="ghost" size="sm" className="flex-1">
+                                        <div className="flex items-center gap-1.5 border-t border-border pt-2">
+                                            <Button asChild variant="ghost" size="sm" className="h-7 flex-1">
                                                 <Link href={`/deployments/${d.deployment_uuid}`}>
                                                     <i className="fa-solid fa-sliders" /> Manage
                                                 </Link>
                                             </Button>
-                                            <Button variant="outline" size="sm" onClick={() => openEnvDialog(d)} aria-label="Environment variables">
+                                            <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={() => openEnvDialog(d)} aria-label="Environment variables">
                                                 <i className="fa-solid fa-file-code" />
                                             </Button>
                                             <Button
                                                 variant="outline"
                                                 size="sm"
+                                                className="h-7 w-7 p-0"
                                                 onClick={() => openRebuildDialog(d)}
                                                 disabled={d.status === 'pending'}
                                                 pending={busyKey === `rebuild-${d.deployment_uuid}`}
+                                                pendingText=""
                                                 aria-label="Rebuild"
                                             >
                                                 <i className="fa-solid fa-rotate" />
